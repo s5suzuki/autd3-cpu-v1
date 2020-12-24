@@ -4,7 +4,7 @@
  * Created Date: 29/06/2020
  * Author: Shun Suzuki
  * -----
- * Last Modified: 21/12/2020
+ * Last Modified: 24/12/2020
  * Modified By: Shun Suzuki (suzuki@hapis.k.u-tokyo.ac.jp)
  * -----
  * Copyright (c) 2020 Hapis Lab. All rights reserved.
@@ -52,8 +52,8 @@
 #define CMD_LM_MODE (0x06)
 #define CMD_INIT_FPGA_REF_CLOCK (0x07)
 #define CMD_CALIB_FPGA_LM_CLOCK (0x08)
-#define CMD_SET_DELAY (0x09)
 #define CMD_CLEAR (0x09)
+#define CMD_SET_DELAY (0x0A)
 
 extern RX_STR0 _sRx0;
 extern RX_STR1 _sRx1;
