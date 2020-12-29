@@ -1,5 +1,7 @@
 # README
 
+Version: 0.8
+
 This repository contains the CPU design of [AUTD3](https://hapislab.org/airborne-ultrasound-tactile-display?lang=en).
 
 # :fire: CAUTION
@@ -42,7 +44,13 @@ Some codes has omitted because they contain proprietary parts.
 | 　          | 0x00F9    | Unused                           | 　  | 　                                                         |
 | 　          | ︙        | ︙                               | 　  | 　                                                         |
 | 　          | 0x00FF    | Unused                           | 　  | 　                                                         |
-| 　          | 0x0100    | nil                              | 　  | 　                                                         |
+| 　          | 0x0100    | delay[0]                         | 　  | 　                                                         |
+| 　          | ︙        | ︙                               | 　  | 　                                                         |
+| 　          | 0x01F8    | delay[248]                         | 　  | 　                                                         |
+| 　          | 0x01F9    | Unused                         | 　  | 　                                                         |
+| 　          | ︙        | ︙                               | 　  | 　                                                         |
+| 　          | 0x01FF    | Unused                         | 　  | 　                                                         |
+| 　          | 0x0200    | nil                              | 　  | 　                                                         |
 | 　          | ︙        | ︙                               | 　  | 　                                                         |
 | 　          | 0x3FFF    | nil                              | 　  | 　                                                         |
 | 0x3         | 0x00000   | lm_x[0][15:0]                    | W   | Below, the write address in the FPGA will be BRAM_ADDR+(LM bram addr offset)*0x4000 |
@@ -76,6 +84,7 @@ Some codes has omitted because they contain proprietary parts.
 | 2              | v0.5    | 
 | 3              | v0.6    | 
 | 4              | v0.7    | 
+| 5              | v0.8    | 
 
 # Author
 
