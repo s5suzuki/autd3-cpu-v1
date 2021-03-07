@@ -4,7 +4,7 @@
  * Created Date: 29/06/2020
  * Author: Shun Suzuki
  * -----
- * Last Modified: 24/12/2020
+ * Last Modified: 07/03/2021
  * Modified By: Shun Suzuki (suzuki@hapis.k.u-tokyo.ac.jp)
  * -----
  * Copyright (c) 2020 Hapis Lab. All rights reserved.
@@ -16,7 +16,7 @@
 #include "iodefine.h"
 #include "utils.h"
 
-#define CPU_VERSION (0x0005)  // v0.8
+#define CPU_VERSION (0x0006)  // v0.9
 
 #define MICRO_SECONDS (1000)
 
@@ -53,7 +53,6 @@
 #define CMD_INIT_FPGA_REF_CLOCK (0x07)
 #define CMD_CALIB_FPGA_LM_CLOCK (0x08)
 #define CMD_CLEAR (0x09)
-#define CMD_SET_DELAY (0x0A)
 
 extern RX_STR0 _sRx0;
 extern RX_STR1 _sRx1;
@@ -130,6 +129,9 @@ static void write_foci(Focus *foci, uint16_t write) {
 }
 
 static void clear(void) {
+  volatile uint16_t *base = (volatile uint16_t *)FPGA_BASE;
+  uint16_t addr;
+
   _ref_clk_cyc_shift = 0;
 
   _mod_idx_shift = 1;
@@ -138,7 +140,10 @@ static void clear(void) {
   memset_volatile(_mod_buf, 0xff, MOD_BUF_SIZE);
   write_mod_buf(MOD_BUF_SIZE);
 
-  bram_write(BRAM_PROPS_SELECT, LM_DIV_ADDR, 0xFFFF);
+  addr = get_addr(BRAM_NORMAL_OP_SELECT, 0);
+  word_set_volatile(&base[addr], 0x0000, TRANS_NUM);
+
+  word_set(BRAM_PROPS_SELECT, LM_DIV_ADDR, 0xFFFF);
 
   bram_write(BRAM_PROPS_SELECT, CF_AND_CP_ADDR, PROPS_RST | SILENT);
   asm volatile("dmb");
@@ -227,13 +232,6 @@ static void cmd_op(RxGlobalHeader *header) {
     }
     write_mod_buf(mod_write);
   }
-}
-
-static void cmd_set_delay(void) {
-  volatile uint16_t *base = (volatile uint16_t *)FPGA_BASE;
-  uint16_t addr = get_addr(BRAM_NORMAL_OP_SELECT, 256);
-
-  word_cpy_volatile(&base[addr], _sRx0.data, TRANS_NUM);
 }
 
 static void cmd_wr_bram(void) {
@@ -357,12 +355,6 @@ void recv_ethercat(void) {
 
       case CMD_RD_FPGA_V_MSB:
         _sTx.ack = (((uint16_t)(header->msg_id)) << 8) | ((get_fpga_version() & 0xFF00) >> 8);
-        break;
-
-      case CMD_SET_DELAY:
-        _commnad = 0x00;
-        cmd_set_delay();
-        _sTx.ack = ((uint16_t)(header->msg_id)) << 8;
         break;
 
       default:
