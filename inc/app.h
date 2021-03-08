@@ -3,7 +3,7 @@
 // Created Date: 04/12/2020
 // Author: Shun Suzuki
 // -----
-// Last Modified: 07/12/2020
+// Last Modified: 08/03/2021
 // Modified By: Shun Suzuki (suzuki@hapis.k.u-tokyo.ac.jp)
 // -----
 // Copyright (c) 2020 Hapis Lab. All rights reserved.
@@ -80,8 +80,14 @@ static inline void word_cpy_volatile(volatile uint16_t *dst, volatile uint16_t *
   }
 }
 
+static inline void word_set_volatile(volatile uint16_t *dst, uint16_t v, uint32_t cnt) {
+  while (cnt-- > 0) {
+    *dst++ = v;
+  }
+}
+
 static inline void word_set(uint16_t *dst, uint16_t v, uint32_t cnt) {
-  while (cnt--) {
+  while (cnt-- > 0) {
     *dst++ = v;
   }
 }
