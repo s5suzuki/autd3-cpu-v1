@@ -1,6 +1,6 @@
 # README
 
-Version: 0.8
+Version: 0.9
 
 This repository contains the CPU design of [AUTD3](https://hapislab.org/airborne-ultrasound-tactile-display?lang=en).
 
@@ -43,12 +43,6 @@ Some codes has omitted because they contain proprietary parts.
 | 　          | 0x00F8    | amp[248]/phase[248]              | W   | 　                                                         |
 | 　          | 0x00F9    | Unused                           | 　  | 　                                                         |
 | 　          | ︙        | ︙                               | 　  | 　                                                         |
-| 　          | 0x00FF    | Unused                           | 　  | 　                                                         |
-| 　          | 0x0100    | delay[0]                         | 　  | 　                                                         |
-| 　          | ︙        | ︙                               | 　  | 　                                                         |
-| 　          | 0x01F8    | delay[248]                         | 　  | 　                                                         |
-| 　          | 0x01F9    | Unused                         | 　  | 　                                                         |
-| 　          | ︙        | ︙                               | 　  | 　                                                         |
 | 　          | 0x01FF    | Unused                         | 　  | 　                                                         |
 | 　          | 0x0200    | nil                              | 　  | 　                                                         |
 | 　          | ︙        | ︙                               | 　  | 　                                                         |
@@ -85,6 +79,7 @@ Some codes has omitted because they contain proprietary parts.
 | 3              | v0.6    | 
 | 4              | v0.7    | 
 | 5              | v0.8    | 
+| 6              | v0.9    | 
 
 # Author
 
