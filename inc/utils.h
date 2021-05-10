@@ -3,7 +3,7 @@
 // Created Date: 17/06/2020
 // Author: Shun Suzuki
 // -----
-// Last Modified: 07/12/2020
+// Last Modified: 10/05/2021
 // Modified By: Shun Suzuki (suzuki@hapis.k.u-tokyo.ac.jp)
 // -----
 // Copyright (c) 2020 Hapis Lab. All rights reserved.
@@ -33,8 +33,8 @@ __attribute__((noinline)) static void wait_ns(uint32_t value) {
 // Can make these more elegant and effective?
 //
 // Division operator (/) and modulo operator (%) are not available when compiling with Release configuration.
-// For some reason, compiling code that contains such operators will not work. (Even if I don't actually call it!)
-// Therefore, I implemented following two functions...
+// For some reason, compiling code that contains such operators will not work. (Even if it doesn't been actually called!)
+// Therefore, the following two functions are implemented...
 static inline uint32_t mod1e9_u32(uint32_t value) {
   if (value < 1000000000UL)
     return value;
@@ -60,28 +60,10 @@ static inline uint32_t mod1e9_u64(uint64_t value) {
   return mod1e9_u32(tmp);
 }
 
-static inline uint32_t mod_n_pows_of_two_e9_u64(uint64_t value, uint16_t n) {
+static inline uint32_t mod_n_pows_of_two(uint64_t value, uint16_t n) {
   uint64_t rv = value >> n;
   uint64_t rest = (rv - (uint64_t)mod1e9_u64(rv)) << n;
   return (uint32_t)(value - rest);
-}
-
-inline static uint16_t min(uint16_t l, uint16_t r) { return l < r ? l : r; }
-
-// By fast inverse square root
-// See https://en.wikipedia.org/wiki/Fast_inverse_square_root
-inline static float32_t sqrt_f(float32_t x) {
-  float32_t x2 = 0.5f * x;
-  int32_t initial = 0x5F3759DF - (*(int32_t *)&x >> 1);
-  float32_t y = *(float32_t *)&initial;
-
-  y *= (1.5f - (x2 * y * y));
-  return y * x;
-}
-
-inline static float32_t mod_f(float32_t x, float32_t y) {
-  int32_t n = (int32_t)(x / y);
-  return x - n * y;
 }
 
 #endif  // INC_UTILS_H_
