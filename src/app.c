@@ -207,7 +207,6 @@ void recv_ethercat(void) {
 
     switch (header->command) {
       case CMD_OP:
-        _commnad = 0x00;
         cmd_op(header);
         _ctrl_flag = header->control_flags;
         bram_write(BRAM_CONFIG_SELECT, CONFIG_CF_AND_CP, _ctrl_flag);
