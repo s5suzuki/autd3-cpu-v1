@@ -4,7 +4,7 @@
  * Created Date: 29/06/2020
  * Author: Shun Suzuki
  * -----
- * Last Modified: 10/05/2021
+ * Last Modified: 12/05/2021
  * Modified By: Shun Suzuki (suzuki@hapis.k.u-tokyo.ac.jp)
  * -----
  * Copyright (c) 2020 Hapis Lab. All rights reserved.
@@ -31,15 +31,15 @@
 
 #define CONFIG_CF_AND_CP (0)
 #define CONFIG_FPGA_INFO (1)
-#define CONFIG_STM_CYCLE (2)
-#define CONFIG_STM_DIV (3)
-#define CONFIG_STM_SYNC_SHIFT (4)
+#define CONFIG_SEQ_CYCLE (2)
+#define CONFIG_SEQ_DIV (3)
+#define CONFIG_SEQ_SYNC_SHIFT (4)
 #define CONFIG_MOD_IDX_SHIFT (5)
 #define CONFIG_REF_CLK_CYC_SHIFT (6)
 #define CONFIG_FPGA_VER (255)
 
 #define CP_REF_INIT (0x0100)
-#define CP_STM_INIT (0x0200)
+#define CP_SEQ_INIT (0x0200)
 #define CP_RST (0x8000)
 
 #define CMD_OP (0x00)
@@ -47,7 +47,7 @@
 #define CMD_RD_CPU_V_MSB (0x03)
 #define CMD_RD_FPGA_V_LSB (0x04)
 #define CMD_RD_FPGA_V_MSB (0x05)
-#define CMD_STM_MODE (0x06)
+#define CMD_SEQ_MODE (0x06)
 #define CMD_INIT_FPGA_REF_CLOCK (0x07)
 #define CMD_CLEAR (0x09)
 #define CMD_UPDATE_CTRL_FLAG (0x0A)
@@ -63,8 +63,8 @@ static volatile uint8_t _ctrl_flag = 0;
 static volatile uint8_t _mod_buf[MOD_BUF_SIZE];
 static volatile uint16_t _mod_size = 0;
 
-static volatile uint16_t _stm_cycle = 0;
-static volatile uint16_t _stm_buf_fpga_write = 0;
+static volatile uint16_t _seq_cycle = 0;
+static volatile uint16_t _seq_buf_fpga_write = 0;
 
 static volatile uint16_t _ref_clk_cyc_shift = 0;
 static volatile uint16_t _mod_idx_shift = 1;
@@ -82,9 +82,9 @@ typedef enum {
   //
   SILENT = 1 << 3,
   FORCE_FAN = 1 << 4,
-  STM_MODE = 1 << 5,
-  STM_BEGIN = 1 << 6,
-  STM_END = 1 << 7,
+  SEQ_MODE = 1 << 5,
+  SEQ_BEGIN = 1 << 6,
+  SEQ_END = 1 << 7,
 } RxGlobalControlFlags;
 
 typedef struct {
@@ -155,10 +155,10 @@ static void cmd_op(RxGlobalHeader *header) {
   uint32_t i;
   uint32_t mod_write;
 
-  if ((header->control_flags & STM_MODE) == 0) {
-    _stm_cycle = 0;
-    _stm_buf_fpga_write = 0;
-    bram_write(BRAM_CONFIG_SELECT, CONFIG_STM_DIV, 0xFFFF);
+  if ((header->control_flags & SEQ_MODE) == 0) {
+    _seq_cycle = 0;
+    _seq_buf_fpga_write = 0;
+    bram_write(BRAM_CONFIG_SELECT, CONFIG_SEQ_DIV, 0xFFFF);
 
     addr = get_addr(BRAM_NORMAL_OP_SELECT, 0);
     word_cpy_volatile(&base[addr], _sRx0.data, TRANS_NUM);
