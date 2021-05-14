@@ -3,7 +3,7 @@
 // Created Date: 04/12/2020
 // Author: Shun Suzuki
 // -----
-// Last Modified: 10/05/2021
+// Last Modified: 14/05/2021
 // Modified By: Shun Suzuki (suzuki@hapis.k.u-tokyo.ac.jp)
 // -----
 // Copyright (c) 2020 Hapis Lab. All rights reserved.
@@ -120,6 +120,14 @@ static inline void memset_volatile(volatile void *s, char c, uint32_t cnt) {
     *p++ = c;
   }
 }
+
+typedef struct {
+  uint16_t x15_0;
+  uint16_t y7_0_x23_16;
+  uint16_t y23_8;
+  uint16_t z15_0;
+  uint16_t duty_z23_16;
+} Focus;
 
 typedef struct {
   uint16_t reserved;
