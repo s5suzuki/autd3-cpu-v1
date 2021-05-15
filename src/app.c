@@ -4,7 +4,7 @@
  * Created Date: 29/06/2020
  * Author: Shun Suzuki
  * -----
- * Last Modified: 14/05/2021
+ * Last Modified: 15/05/2021
  * Modified By: Shun Suzuki (suzuki@hapis.k.u-tokyo.ac.jp)
  * -----
  * Copyright (c) 2020 Hapis Lab. All rights reserved.
@@ -35,11 +35,11 @@
 #define CONFIG_FPGA_INFO (1)
 #define CONFIG_SEQ_CYCLE (2)
 #define CONFIG_SEQ_DIV (3)
-#define CONFIG_SEQ_SYNC_SHIFT (4)
 #define CONFIG_MOD_IDX_SHIFT (5)
 #define CONFIG_REF_CLK_CYC_SHIFT (6)
 #define CONFIG_SEQ_BRAM_OFFSET (7)
 #define CONFIG_WAVELENGTH_UM (8)
+#define CONFIG_SEQ_SYNC_TIME_BASE (9)
 #define CONFIG_FPGA_VER (255)
 
 #define CP_REF_INIT (0x0100)
@@ -138,7 +138,6 @@ static void init_fpga_ref_clk(void) {
 
   bram_write(BRAM_CONFIG_SELECT, CONFIG_MOD_IDX_SHIFT, _mod_idx_shift);
   bram_write(BRAM_CONFIG_SELECT, CONFIG_REF_CLK_CYC_SHIFT, _ref_clk_cyc_shift);
-  asm volatile("dmb");
 
   // wait for sync0 activation
   while (ECATC.DC_SYS_TIME.LONGLONG < next_sync0) {
@@ -157,8 +156,11 @@ static void init_fpga_ref_clk(void) {
 }
 
 static void init_fpga_seq_clk(void) {
+  volatile uint16_t *base = (volatile uint16_t *)FPGA_BASE;
+  uint16_t addr;
   volatile uint64_t sys_time;
   volatile uint64_t next_sync0 = ECATC.DC_CYC_START_TIME.LONGLONG;
+
   while (true) {
     sys_time = ECATC.DC_SYS_TIME.LONGLONG;
     if (sys_time > next_sync0) {
@@ -168,6 +170,9 @@ static void init_fpga_seq_clk(void) {
         next_sync0 = ECATC.DC_CYC_START_TIME.LONGLONG;
     }
   }
+  next_sync0 += (uint64_t)ECATC.DC_SYNC0_CYC_TIME.LONG;
+  addr = get_addr(BRAM_CONFIG_SELECT, CONFIG_SEQ_SYNC_TIME_BASE);
+  word_cpy_volatile(&base[addr], (volatile uint16_t*)&next_sync0, sizeof(uint64_t));
   bram_write(BRAM_CONFIG_SELECT, CONFIG_CF_AND_CP, CP_SEQ_INIT | _ctrl_flag);
 }
 
