@@ -4,7 +4,7 @@
  * Created Date: 29/06/2020
  * Author: Shun Suzuki
  * -----
- * Last Modified: 15/05/2021
+ * Last Modified: 16/05/2021
  * Modified By: Shun Suzuki (suzuki@hapis.k.u-tokyo.ac.jp)
  * -----
  * Copyright (c) 2020 Hapis Lab. All rights reserved.
@@ -172,7 +172,7 @@ static void init_fpga_seq_clk(void) {
   }
   next_sync0 += (uint64_t)ECATC.DC_SYNC0_CYC_TIME.LONG;
   addr = get_addr(BRAM_CONFIG_SELECT, CONFIG_SEQ_SYNC_TIME_BASE);
-  word_cpy_volatile(&base[addr], (volatile uint16_t*)&next_sync0, sizeof(uint64_t));
+  word_cpy_volatile(&base[addr], (volatile uint16_t *)&next_sync0, sizeof(uint64_t));
   bram_write(BRAM_CONFIG_SELECT, CONFIG_CF_AND_CP, CP_SEQ_INIT | _ctrl_flag);
 }
 
@@ -252,28 +252,35 @@ static uint16_t read_fpga_info(void) { return bram_read(BRAM_CONFIG_SELECT, CONF
 
 void update(void) {
   _ack = (((uint16_t)_header_id) << 8);
-  if (_read_fpga_info) _ack = _ack | read_fpga_info();
+  if (_read_fpga_info) _ack |= read_fpga_info();
 
   switch (_commnad) {
+    case CMD_RD_CPU_V_LSB:
+    case CMD_RD_CPU_V_MSB:
+    case CMD_RD_FPGA_V_LSB:
+    case CMD_RD_FPGA_V_MSB:
+      break;
     case CMD_CLEAR:
       _commnad = 0x00;
       clear();
-      _sTx.ack = _ack;
+      if (_read_fpga_info) _ack |= read_fpga_info();
       break;
     case CMD_INIT_FPGA_REF_CLOCK:
       _commnad = 0x00;
       init_fpga_ref_clk();
-      _sTx.ack = _ack;
+      if (_read_fpga_info) _ack |= read_fpga_info();
       break;
     default:
+      if (_read_fpga_info) _ack |= read_fpga_info();
       break;
   }
 
   if (_seq_buf_read_end && (_seq_buf_fpga_write == _seq_cycle)) {
     _seq_buf_read_end = false;
     init_fpga_seq_clk();
-    _sTx.ack = _ack;
   }
+
+  _sTx.ack = _ack;
 }
 
 void recv_ethercat(void) {
@@ -282,49 +289,48 @@ void recv_ethercat(void) {
     _header_id = header->msg_id;
     _ack = ((uint16_t)(header->msg_id)) << 8;
     _read_fpga_info = (header->control_flags & READ_FPGA_INFO) != 0;
-    if (_read_fpga_info) _ack = _ack | read_fpga_info();
 
     switch (header->command) {
       case CMD_OP:
         cmd_op(header);
         _ctrl_flag = header->control_flags;
         bram_write(BRAM_CONFIG_SELECT, CONFIG_CF_AND_CP, _ctrl_flag);
+        if (_read_fpga_info) _ack |= read_fpga_info();
         break;
 
       case CMD_INIT_FPGA_REF_CLOCK:
         _mod_idx_shift = _sRx0.data[0];
         _ref_clk_cyc_shift = _sRx0.data[1];
-        _commnad = header->command;
-        _ack = 0;
+        if (_read_fpga_info) _ack = read_fpga_info();
         break;
 
       case CMD_RD_CPU_V_LSB:
-        _ack = (((uint16_t)(header->msg_id)) << 8) | (get_cpu_version() & 0x00FF);
+        _ack |= get_cpu_version() & 0xFF;
         break;
 
       case CMD_RD_CPU_V_MSB:
-        _ack = (((uint16_t)(header->msg_id)) << 8) | ((get_cpu_version() >> 8) & 0xFF00);
+        _ack |= (get_cpu_version() >> 8) & 0xFF;
         break;
 
       case CMD_RD_FPGA_V_LSB:
-        _ack = (((uint16_t)(header->msg_id)) << 8) | (get_fpga_version() & 0x00FF);
+        _ack |= get_fpga_version() & 0xFF;
         break;
 
       case CMD_RD_FPGA_V_MSB:
-        _ack = (((uint16_t)(header->msg_id)) << 8) | ((get_fpga_version() >> 8) & 0xFF00);
+        _ack |= (get_fpga_version() >> 8) & 0xFF;
         break;
 
       case CMD_SEQ_MODE:
         _ctrl_flag = header->control_flags;
         recv_foci(header);
-        _commnad = header->command;
+        if (_read_fpga_info) _ack |= read_fpga_info();
         break;
 
       default:
-        _commnad = header->command;
-        _ack = 0;
+        if (_read_fpga_info) _ack = read_fpga_info();
         break;
     }
     _sTx.ack = _ack;
+    _commnad = header->command;
   }
 }
