@@ -4,7 +4,7 @@
  * Created Date: 29/06/2020
  * Author: Shun Suzuki
  * -----
- * Last Modified: 17/05/2021
+ * Last Modified: 18/05/2021
  * Modified By: Shun Suzuki (suzuki@hapis.k.u-tokyo.ac.jp)
  * -----
  * Copyright (c) 2020 Hapis Lab. All rights reserved.
@@ -144,10 +144,10 @@ static void init_mod_clk() {
     }
   }
   next_sync0 += (uint64_t)ECATC.DC_SYNC0_CYC_TIME.LONG;
-
   addr = get_addr(BRAM_CONFIG_SELECT, CONFIG_MOD_SYNC_TIME_BASE);
   word_cpy_volatile(&base[addr], (volatile uint16_t *)&next_sync0, sizeof(uint64_t));
   asm volatile("dmb");
+  wait_ns(50 * MICRO_SECONDS);
   bram_write(BRAM_CONFIG_SELECT, CONFIG_CF_AND_CP, CP_MOD_INIT | _ctrl_flag);
   asm volatile("dmb");
   while ((bram_read(BRAM_CONFIG_SELECT, CONFIG_CF_AND_CP) & 0xFF00) != 0x0000) wait_ns(50 * MICRO_SECONDS);
@@ -172,6 +172,7 @@ static void init_fpga_seq_clk(void) {
   addr = get_addr(BRAM_CONFIG_SELECT, CONFIG_SEQ_SYNC_TIME_BASE);
   word_cpy_volatile(&base[addr], (volatile uint16_t *)&next_sync0, sizeof(uint64_t));
   asm volatile("dmb");
+  wait_ns(50 * MICRO_SECONDS);
   bram_write(BRAM_CONFIG_SELECT, CONFIG_CF_AND_CP, CP_SEQ_INIT | _ctrl_flag);
   asm volatile("dmb");
   while ((bram_read(BRAM_CONFIG_SELECT, CONFIG_CF_AND_CP) & 0xFF00) != 0x0000) wait_ns(50 * MICRO_SECONDS);
@@ -246,33 +247,29 @@ static uint16_t get_fpga_version(void) { return bram_read(BRAM_CONFIG_SELECT, CO
 static uint16_t read_fpga_info(void) { return bram_read(BRAM_CONFIG_SELECT, CONFIG_FPGA_INFO); }
 
 void update(void) {
-  _ack = (((uint16_t)_header_id) << 8);
-  if (_read_fpga_info) _ack |= read_fpga_info();
-
   switch (_commnad) {
     case CMD_RD_CPU_V_LSB:
     case CMD_RD_CPU_V_MSB:
     case CMD_RD_FPGA_V_LSB:
     case CMD_RD_FPGA_V_MSB:
       break;
-    case CMD_CLEAR:
-      _commnad = 0x00;
-      clear();
-      if (_read_fpga_info) _ack |= read_fpga_info();
-      break;
+
     case CMD_INIT_MOD_CLOCK:
       _commnad = 0x00;
       init_mod_clk();
+      _ack = ((uint16_t)_header_id) << 8;
       if (_read_fpga_info) _ack |= read_fpga_info();
       break;
     default:
-      if (_read_fpga_info) _ack |= read_fpga_info();
+      if (_read_fpga_info) _ack = (_ack & 0xFF00) | read_fpga_info();
       break;
   }
 
   if (_seq_buf_read_end && (_seq_buf_fpga_write == _seq_cycle)) {
     _seq_buf_read_end = false;
     init_fpga_seq_clk();
+    _ack = ((uint16_t)_header_id) << 8;
+    if (_read_fpga_info) _ack |= read_fpga_info();
   }
 
   _sTx.ack = _ack;
@@ -284,46 +281,48 @@ void recv_ethercat(void) {
     _header_id = header->msg_id;
     _ack = ((uint16_t)(header->msg_id)) << 8;
     _read_fpga_info = (header->control_flags & READ_FPGA_INFO) != 0;
+    if (_read_fpga_info) _ack |= read_fpga_info();
 
     switch (header->command) {
       case CMD_OP:
         cmd_op(header);
         _ctrl_flag = header->control_flags;
         bram_write(BRAM_CONFIG_SELECT, CONFIG_CF_AND_CP, _ctrl_flag);
-        if (_read_fpga_info) _ack |= read_fpga_info();
+        break;
+
+      case CMD_CLEAR:
+        clear();
         break;
 
       case CMD_INIT_MOD_CLOCK:
         _mod_cycle = _sRx0.data[0];
         bram_write(BRAM_CONFIG_SELECT, CONFIG_MOD_CYCLE, _mod_cycle);
         bram_write(BRAM_CONFIG_SELECT, CONFIG_MOD_DIV, _sRx0.data[1]);
-        if (_read_fpga_info) _ack = read_fpga_info();
+        _ack &= 0x00FF;
         break;
 
       case CMD_RD_CPU_V_LSB:
-        _ack |= get_cpu_version() & 0xFF;
+        _ack = (_ack & 0xFF00) | (get_cpu_version() & 0xFF);
         break;
 
       case CMD_RD_CPU_V_MSB:
-        _ack |= (get_cpu_version() >> 8) & 0xFF;
+        _ack = (_ack & 0xFF00) | ((get_cpu_version() >> 8) & 0xFF);
         break;
 
       case CMD_RD_FPGA_V_LSB:
-        _ack |= get_fpga_version() & 0xFF;
+        _ack = (_ack & 0xFF00) | (get_fpga_version() & 0xFF);
         break;
 
       case CMD_RD_FPGA_V_MSB:
-        _ack |= (get_fpga_version() >> 8) & 0xFF;
+        _ack = (_ack & 0xFF00) | ((get_fpga_version() >> 8) & 0xFF);
         break;
 
       case CMD_SEQ_MODE:
         _ctrl_flag = header->control_flags;
         recv_foci(header);
-        if (_read_fpga_info) _ack |= read_fpga_info();
         break;
 
       default:
-        if (_read_fpga_info) _ack = read_fpga_info();
         break;
     }
     _sTx.ack = _ack;
