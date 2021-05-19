@@ -4,7 +4,7 @@
  * Created Date: 29/06/2020
  * Author: Shun Suzuki
  * -----
- * Last Modified: 18/05/2021
+ * Last Modified: 19/05/2021
  * Modified By: Shun Suzuki (suzuki@hapis.k.u-tokyo.ac.jp)
  * -----
  * Copyright (c) 2020 Hapis Lab. All rights reserved.
@@ -137,7 +137,7 @@ static void init_mod_clk() {
   while (true) {
     sys_time = ECATC.DC_SYS_TIME.LONGLONG;
     if (sys_time > next_sync0) {
-      if (sys_time < next_sync0 + 500 * MICRO_SECONDS)
+      if (sys_time < next_sync0 + 200 * MICRO_SECONDS)
         break;
       else
         next_sync0 = ECATC.DC_CYC_START_TIME.LONGLONG;
@@ -162,7 +162,7 @@ static void init_fpga_seq_clk(void) {
   while (true) {
     sys_time = ECATC.DC_SYS_TIME.LONGLONG;
     if (sys_time > next_sync0) {
-      if (sys_time < next_sync0 + 500 * MICRO_SECONDS)
+      if (sys_time < next_sync0 + 200 * MICRO_SECONDS)
         break;
       else
         next_sync0 = ECATC.DC_CYC_START_TIME.LONGLONG;
