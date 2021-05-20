@@ -4,7 +4,7 @@
  * Created Date: 29/06/2020
  * Author: Shun Suzuki
  * -----
- * Last Modified: 19/05/2021
+ * Last Modified: 20/05/2021
  * Modified By: Shun Suzuki (suzuki@hapis.k.u-tokyo.ac.jp)
  * -----
  * Copyright (c) 2020 Hapis Lab. All rights reserved.
@@ -40,6 +40,8 @@
 #define CONFIG_MOD_SYNC_TIME_BASE (0x0F)
 #define CONFIG_FPGA_VER (255)
 
+#define TR_DELAY_BASE_ADDR (0x100)
+
 #define CP_MOD_INIT (0x0100)
 #define CP_SEQ_INIT (0x0200)
 
@@ -51,6 +53,7 @@
 #define CMD_SEQ_MODE (0x06)
 #define CMD_INIT_MOD_CLOCK (0x07)
 #define CMD_CLEAR (0x09)
+#define CMD_SET_DELAY (0x0A)
 
 extern RX_STR0 _sRx0;
 extern RX_STR1 _sRx1;
@@ -116,6 +119,9 @@ static void clear(void) {
   write_mod_buf(MOD_BUF_SIZE);
 
   addr = get_addr(BRAM_TR_SELECT, 0);
+  word_set_volatile(&base[addr], 0x0000, TRANS_NUM);
+
+  addr = get_addr(BRAM_TR_SELECT, TR_DELAY_BASE_ADDR);
   word_set_volatile(&base[addr], 0x0000, TRANS_NUM);
 
   bram_write(BRAM_CONFIG_SELECT, CONFIG_CF_AND_CP, SILENT);
@@ -199,6 +205,12 @@ static void cmd_op(RxGlobalHeader *header) {
     }
     write_mod_buf(_mod_cycle);
   }
+}
+
+static void cmd_set_delay(void) {
+  volatile uint16_t *base = (volatile uint16_t *)FPGA_BASE;
+  uint16_t addr = get_addr(BRAM_TR_SELECT, TR_DELAY_BASE_ADDR);
+  word_cpy_volatile(&base[addr], _sRx0.data, TRANS_NUM);
 }
 
 static void write_foci(Focus *foci, uint16_t write) {
@@ -320,6 +332,10 @@ void recv_ethercat(void) {
       case CMD_SEQ_MODE:
         _ctrl_flag = header->control_flags;
         recv_foci(header);
+        break;
+
+      case CMD_SET_DELAY:
+        cmd_set_delay();
         break;
 
       default:
