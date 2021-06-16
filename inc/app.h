@@ -3,7 +3,7 @@
 // Created Date: 04/12/2020
 // Author: Shun Suzuki
 // -----
-// Last Modified: 17/05/2021
+// Last Modified: 16/06/2021
 // Modified By: Shun Suzuki (suzuki@hapis.k.u-tokyo.ac.jp)
 // -----
 // Copyright (c) 2020 Hapis Lab. All rights reserved.
@@ -35,57 +35,52 @@ typedef int bool_t;
 #endif
 
 #define TRANS_NUM (249)
-#define LM_BUF_SEGMENT_SIZE (2048)
 
 // CS1 FPGA address
 #define FPGA_BASE (0x44000000)
-static inline void word_cpy(uint16_t *dst, uint16_t *src, uint32_t cnt) {
-  while (cnt-- > 0) *dst++ = *src++;
-}
-static inline void word_cpy_volatile(volatile uint16_t *dst, volatile uint16_t *src, uint32_t cnt) {
-  while (cnt-- > 0) *dst++ = *src++;
-}
 
-static inline void word_set_volatile(volatile uint16_t *dst, uint16_t v, uint32_t cnt) {
+inline static void word_cpy(uint16_t *dst, uint16_t *src, uint32_t cnt) {
+  while (cnt-- > 0) *dst++ = *src++;
+}
+inline static void word_cpy_volatile(volatile uint16_t *dst, volatile uint16_t *src, uint32_t cnt) {
+  while (cnt-- > 0) *dst++ = *src++;
+}
+inline static void word_set_volatile(volatile uint16_t *dst, uint16_t v, uint32_t cnt) {
   while (cnt-- > 0) *dst++ = v;
 }
 
-inline static uint16_t get_addr(uint8_t bram_select, uint16_t bram_addr) { return (((uint16_t)bram_select & 0x0003) << 14) | (bram_addr & 0x3FFF); }
+inline static void memcpy_volatile(volatile void *dst, volatile const void *src, uint32_t cnt) {
+  volatile uint8_t *dst_uc = dst;
+  volatile const uint8_t *src_uc = src;
+  while (cnt-- > 0) *dst_uc++ = *src_uc++;
+}
+inline static void memset_volatile(volatile void *s, uint8_t c, uint32_t cnt) {
+  volatile uint8_t *p = s;
+  while (cnt-- > 0) *p++ = c;
+}
 
-static inline void bram_write(uint8_t bram_select, uint16_t bram_addr, uint16_t value) {
+inline static uint16_t get_addr(uint8_t bram_select, uint16_t bram_addr) { return (((uint16_t)bram_select & 0x0003) << 14) | (bram_addr & 0x3FFF); }
+inline static void bram_write(uint8_t bram_select, uint16_t bram_addr, uint16_t value) {
   volatile uint16_t *base = (volatile uint16_t *)FPGA_BASE;
   uint16_t addr = get_addr(bram_select, bram_addr);
   base[addr] = value;
 }
-
-static inline uint16_t bram_read(uint8_t bram_select, uint16_t bram_addr) {
+inline static uint16_t bram_read(uint8_t bram_select, uint16_t bram_addr) {
   volatile uint16_t *base = (volatile uint16_t *)FPGA_BASE;
   uint16_t addr = get_addr(bram_select, bram_addr);
   return base[addr];
 }
 
-static inline void memcpy_volatile(volatile void *dst, volatile const void *src, uint32_t cnt) {
-  volatile uint8_t *dst_uc = dst;
-  volatile const uint8_t *src_uc = src;
-  while (cnt-- > 0) *dst_uc++ = *src_uc++;
-}
-
-static inline void memset_volatile(volatile void *s, uint8_t c, uint32_t cnt) {
-  volatile uint8_t *p = s;
-  while (cnt-- > 0) *p++ = c;
-}
-
 typedef struct {
   uint16_t x15_0;
-  uint16_t y7_0_x23_16;
-  uint16_t y23_8;
-  uint16_t z15_0;
-  uint16_t duty_z23_16;
+  uint16_t y13_0_x17_16;
+  uint16_t z11_0_y17_14;
+  uint16_t duty_z17_12;
 } Focus;
 
 typedef struct {
   uint16_t reserved;
-  uint16_t data[249]; /* Data from PC */
+  uint16_t data[TRANS_NUM]; /* Data from PC */
 } RX_STR0;
 
 typedef struct {

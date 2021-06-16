@@ -1,6 +1,6 @@
 # AUTD3 CPU firmware
 
-Version: 1.0
+Version: 1.1
 
 This repository contains the CPU design of [AUTD3](https://hapislab.org/airborne-ultrasound-tactile-display?lang=en).
 
@@ -21,7 +21,7 @@ Some codes has omitted because they contain proprietary parts.
 | 　          | 0x0003    | Seq clock division                | W   | 　                                                         |
 | 　          | 0x0004    | -                                 | -   | 　                                                         |
 | 　          | 0x0005    | -                                 | -   | 　                                                         |
-| 　          | 0x0006    | -                                 | -   | 　                                                         |
+| 　          | 0x0006    | Mod bram addr offset              | W  | 　                                                         |
 | 　          | 0x0007    | Seq bram addr offset              | W  | 　                                                         |
 | 　          | 0x0008    | Wavelength in micro meters        | W  | 　                                                         |
 | 　          | 0x0009    | Seq clk sync time[15:0]           | W  | 　                                                         |
@@ -36,21 +36,15 @@ Some codes has omitted because they contain proprietary parts.
 | 　          | 0x0012    | Mod clk sync time[63:48]          | W  | 　                                                         |
 | 　          | 0x0013    | Unused                           | -  | 　                                                         |
 | 　          | ︙        | ︙                               | ︙ | 　                                                         |
-| 　          | 0x00FE    | Unused                           | ︙  | 　                                                         |
-| 　          | 0x00FF    | FPGA version number              | R   | 　                                                         |
-| 　          | 0x0100    | nil                              | -  | 　                                                         |
+| 　          | 0x003E    | Unused                           | ︙  | 　                                                         |
+| 　          | 0x003F    | FPGA version number              | R   | 　                                                         |
+| 　          | 0x0040    | nil                              | -  | 　                                                         |
 | 　          | ︙        | 　                               | ︙　  | 　                                                         |
 | 　          | 0x3FFF    | nil                              | -　  | 　                                                         |
-| 0x1         | 0x0000    | mod[1]/mod[0]                    | W   | 　                                                         |
+| 0x1         | 0x0000    | mod[1]/mod[0]                    | W   | Below, the write address in the FPGA will be BRAM_ADDR+(Mod bram addr offset)*0x4000　                                                         |
 | 　          | 0x0001    | mod[3]/mod[2]                    | W   | 　                                                         |
 | 　          | ︙        | ︙                               | ︙  | 　                                                         |
-| 　          | 0x3E7F    | mod[31999]/mod[31998]              | W   | 　                                                         |
-| 　          | 0x3E80    | Unused                           | -　  | 　                                                         |
-| 　          | ︙        | ︙                               | 　︙  | 　                                                         |
-| 　          | 0x07FF    | Unused                           | 　-  | 　                                                         |
-| 　          | 0x0800    | nil                              | -　  | 　                                                         |
-| 　          | ︙        | ︙                               | 　︙  | 　                                                         |
-| 　          | 0x3FFF    | nil                              | -　  | 　                                                         |
+| 　          | 0x7FFF    | mod[65535]/mod[65534]              | W   | 　                                                         |
 | 0x2         | 0x0000    | duty[0]/phase[0]                  | W   | 　                                                         |
 | 　          | ︙        | ︙                               | ︙  | 　                                                         |
 | 　          | 0x00F8    | duty[248]/phase[248]              | W   | 　                                                         |
@@ -67,26 +61,14 @@ Some codes has omitted because they contain proprietary parts.
 | 　          | ︙        | ︙                               | 　︙  | 　                                                         |
 | 　          | 0x3FFF    | nil                              | -　  | 　                                                         |
 | 0x3         | 0x00000   | lm_x[0][15:0]                    | W   | Below, the write address in the FPGA will be BRAM_ADDR+(Seq bram addr offset)*0x4000 |
-| 　          | 0x00001   | lm_y[0][7:0]/lm_x[0][23:16]      | W   | 　                                                         |
-| 　          | 0x00002   | lm_y[0][23:8]                    | W   | 　                                                         |
-| 　          | 0x00003   | lm_z[0][15:0]                    | W   | 　                                                         |
-| 　          | 0x00004   | lm_amp[0]/lm_z[0][23:16]         | W   | 　                                                         |
-| 　          | 0x00005   | Unused                           | -　  | 　                                                         |
-| 　          | ︙        | ︙                               | 　︙  | 　                                                         |
-| 　          | 0x00007   | Unused                           | 　-  | 　                                                         |
-| 　          | 0x00008   | lm_x[1][15:0]                    | W   | 　                                                         |
+| 　          | 0x00001   | lm_y[0][13:0], lm_x[0][17:16]      | W   | 　                                                         |
+| 　          | 0x00002   | lm_z[0][11:0], lm_y[0][17:14]                    | W   | 　                                                         |
+| 　          | 0x00003   | 0b00, lm_duty[0], lm_z[0][17:12]                    | W   | 　                                                         |
+| 　          | 0x00004   | lm_x[1][15:0]                    | W   | 　                                                         |
 | 　          | ︙        | ︙                               | ︙  | 　                                                         |
-| 　          | 0x0000C   | lm_amp[1]/lm_z[1][23:16]         | W   | 　                                                         |
-| 　          | 0x0000D   | Unused                           | -　  | 　                                                         |
-| 　          | ︙        | ︙                               | ︙　  | 　                                                         |
-| 　          | 0x0000F   | Unused                           | -　  | 　                                                         |
+| 　          | 0x3FFFC   | lm_x[65535][15:0]                | W   | 　                                                         |
 | 　          | ︙        | ︙                               | ︙  | 　                                                         |
-| 　          | 0x4E1F8   | lm_x[39999][15:0]                | W   | 　                                                         |
-| 　          | ︙        | ︙                               | ︙  | 　                                                         |
-| 　          | 0x4E1FC   | lm_amp[39999]/lm_z[39999][23:16] | W   | 　                                                         |
-| 　          | 0x4E1FD   | Unused                           |- 　  | 　                                                         |
-| 　          | ︙        | ︙                               | 　︙  | 　                                                         |
-| 　          | 0x4E1FF   | Unused                           | -　  | 　                                                         |
+| 　          | 0x3FFFF   | 0b00, lm_duty[65535], lm_z[39999][17:12] | W   | 　                                                         |
 
 ## Firmware version number
 
@@ -100,6 +82,7 @@ Some codes has omitted because they contain proprietary parts.
 | 0x0005              | v0.8    | 
 | 0x0006              | v0.9    | 
 | 0x000A              | v1.0    | 
+| 0x000B              | v1.1    | 
 
 # Author
 
