@@ -135,7 +135,10 @@ static void clear(void) {
   word_set_volatile(&base[addr], 0x0000, TRANS_NUM);
 
   addr = get_addr(BRAM_TR_SELECT, TR_DELAY_EN_BASE_ADDR);
-  word_set_volatile(&base[addr], 0x0000, TRANS_NUM + 1);
+  word_set_volatile(&base[addr], 0xFF00, TRANS_NUM);
+
+  addr = get_addr(BRAM_TR_SELECT, TR_DELAY_EN_BASE_ADDR + TRANS_NUM);
+  base[addr] = 0xFFFF;
 
   bram_write(BRAM_CONFIG_SELECT, CONFIG_CF_AND_CP, SILENT);
 }

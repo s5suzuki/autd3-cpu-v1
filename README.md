@@ -1,6 +1,6 @@
 # AUTD3 CPU firmware
 
-Version: 1.1
+Version: 1.2
 
 This repository contains the CPU design of [AUTD3](https://hapislab.org/airborne-ultrasound-tactile-display?lang=en).
 
@@ -34,9 +34,9 @@ Some codes has omitted because they contain proprietary parts.
 | 　          | 0x0010    | Mod clk sync time[31:16]          | W  | 　                                                         |
 | 　          | 0x0011    | Mod clk sync time[47:32]          | W  | 　                                                         |
 | 　          | 0x0012    | Mod clk sync time[63:48]          | W  | 　                                                         |
-| 　          | 0x0013    | Unused                           | -  | 　                                                         |
+| 　          | 0x0013    | unused                           | -  | 　                                                         |
 | 　          | ︙        | ︙                               | ︙ | 　                                                         |
-| 　          | 0x003E    | Unused                           | ︙  | 　                                                         |
+| 　          | 0x003E    | unused                           | ︙  | 　                                                         |
 | 　          | 0x003F    | FPGA version number              | R   | 　                                                         |
 | 　          | 0x0040    | nil                              | -  | 　                                                         |
 | 　          | ︙        | 　                               | ︙　  | 　                                                         |
@@ -48,15 +48,16 @@ Some codes has omitted because they contain proprietary parts.
 | 0x2         | 0x0000    | duty[0]/phase[0]                  | W   | 　                                                         |
 | 　          | ︙        | ︙                               | ︙  | 　                                                         |
 | 　          | 0x00F8    | duty[248]/phase[248]              | W   | 　                                                         |
-| 　          | 0x00F9    | Unused                           | 　-  | 　                                                         |
+| 　          | 0x00F9    | unused                           | 　-  | 　                                                         |
 | 　          | ︙        | ︙                               | ︙　  | 　                                                         |
-| 　          | 0x00FF    | Unused                         | -　  | 　                                                         |
-|             | 0x0100    | delay[0]                  | W   | 　                                                         |
+| 　          | 0x00FF    | unused                         | -　  | 　                                                         |
+|             | 0x0100    | enable[0]/delay[0]                  | W   | 　                                                         |
 | 　          | ︙        | ︙                               | ︙  | 　                                                         |
-| 　          | 0x01F8    | delay[248]              | W   | 　                                                         |
-| 　          | 0x01F9    | Unused                           | -　  | 　                                                         |
+| 　          | 0x01F8    | enable[248]/delay[248]              | W   | 　                                                         |
+| 　          | 0x01F9    | global enable                           | W　  | 　                                                         |
+| 　          | 0x01FA    | unused                           | -　  | 　                                                         |
 | 　          | ︙        | ︙                               | 　︙  | 　                                                         |
-| 　          | 0x01FF    | Unused                         | 　-  | 　                                                         |
+| 　          | 0x01FF    | unused                         | 　-  | 　                                                         |
 | 　          | 0x0200    | nil                              | -　  | 　                                                         |
 | 　          | ︙        | ︙                               | 　︙  | 　                                                         |
 | 　          | 0x3FFF    | nil                              | -　  | 　                                                         |
@@ -83,6 +84,7 @@ Some codes has omitted because they contain proprietary parts.
 | 0x0006              | v0.9    | 
 | 0x000A              | v1.0    | 
 | 0x000B              | v1.1    | 
+| 0x000C              | v1.2    | 
 
 # Author
 
