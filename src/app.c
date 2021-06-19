@@ -150,7 +150,6 @@ static void set_global_en(uint16_t v) {
 }
 
 static void pause() { set_global_en(0x0000); }
-
 static void resume() { set_global_en(0xFFFF); }
 
 void init_app(void) { clear(); }
@@ -349,6 +348,14 @@ void recv_ethercat(void) {
 
       case CMD_SET_DELAY_EN:
         cmd_set_delay_en();
+        break;
+
+      case CMD_PAUSE:
+        pause();
+        break;
+
+      case CMD_RESUME:
+        resume();
         break;
 
       default:
