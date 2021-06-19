@@ -117,9 +117,20 @@ inline static uint64_t wait_sync0() {
   return next_sync0 + (uint64_t)ECATC.DC_SYNC0_CYC_TIME.LONG;
 }
 
+static void set_global_en(uint16_t v) {
+  volatile uint16_t *base = (volatile uint16_t *)FPGA_BASE;
+  uint16_t addr = get_addr(BRAM_TR_SELECT, TR_DELAY_EN_BASE_ADDR + TRANS_NUM);
+  base[addr] = v;
+}
+
+static void pause() { set_global_en(0x0000); }
+static void resume() { set_global_en(0xFFFF); }
+
 static void clear(void) {
   volatile uint16_t *base = (volatile uint16_t *)FPGA_BASE;
   uint16_t addr;
+
+  pause();
 
   _seq_cycle = 0;
   _seq_buf_fpga_write = 0;
@@ -137,20 +148,8 @@ static void clear(void) {
   addr = get_addr(BRAM_TR_SELECT, TR_DELAY_EN_BASE_ADDR);
   word_set_volatile(&base[addr], 0xFF00, TRANS_NUM);
 
-  addr = get_addr(BRAM_TR_SELECT, TR_DELAY_EN_BASE_ADDR + TRANS_NUM);
-  base[addr] = 0xFFFF;
-
   bram_write(BRAM_CONFIG_SELECT, CONFIG_CF_AND_CP, SILENT);
 }
-
-static void set_global_en(uint16_t v) {
-  volatile uint16_t *base = (volatile uint16_t *)FPGA_BASE;
-  uint16_t addr = get_addr(BRAM_TR_SELECT, TR_DELAY_EN_BASE_ADDR + TRANS_NUM);
-  base[addr] = v;
-}
-
-static void pause() { set_global_en(0x0000); }
-static void resume() { set_global_en(0xFFFF); }
 
 void init_app(void) { clear(); }
 
