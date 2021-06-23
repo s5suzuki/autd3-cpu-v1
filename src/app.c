@@ -4,7 +4,7 @@
  * Created Date: 29/06/2020
  * Author: Shun Suzuki
  * -----
- * Last Modified: 19/06/2021
+ * Last Modified: 23/06/2021
  * Modified By: Shun Suzuki (suzuki@hapis.k.u-tokyo.ac.jp)
  * -----
  * Copyright (c) 2020 Hapis Lab. All rights reserved.
@@ -206,6 +206,7 @@ static void recv_foci(RxGlobalHeader *header) {
     _seq_cycle = 0;
     _seq_buf_fpga_write = 0;
     _seq_buf_write_end = false;
+    bram_write(BRAM_CONFIG_SELECT, CONFIG_SEQ_BRAM_OFFSET, 0);
     seq_div = _sRx0.data[1];
     bram_write(BRAM_CONFIG_SELECT, CONFIG_SEQ_DIV, seq_div);
     wavelength = _sRx0.data[2];
@@ -250,6 +251,9 @@ static void cmd_op(RxGlobalHeader *header) {
 
   if ((header->control_flags & MOD_BEGIN) != 0) {
     _mod_cycle = 0;
+    _mod_buf_fpga_write = 0;
+    _mod_buf_write_end = false;
+    bram_write(BRAM_CONFIG_SELECT, CONFIG_MOD_BRAM_OFFSET, 0);
     mod_div = (((uint16_t)header->mod[1] << 8) & 0xFF00) | (header->mod[0] & 0x00FF);
     bram_write(BRAM_CONFIG_SELECT, CONFIG_MOD_DIV, mod_div);
     offset += 2;
