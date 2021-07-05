@@ -4,7 +4,7 @@
  * Created Date: 29/06/2020
  * Author: Shun Suzuki
  * -----
- * Last Modified: 23/06/2021
+ * Last Modified: 05/07/2021
  * Modified By: Shun Suzuki (suzuki@hapis.k.u-tokyo.ac.jp)
  * -----
  * Copyright (c) 2020 Hapis Lab. All rights reserved.
@@ -16,7 +16,7 @@
 #include "iodefine.h"
 #include "utils.h"
 
-#define CPU_VERSION (0x000C)  // v1.2
+#define CPU_VERSION (0x000D)  // v1.3
 
 #define MICRO_SECONDS (1000)
 
@@ -41,7 +41,8 @@
 #define CONFIG_MOD_SYNC_TIME_BASE (0x0F)
 #define CONFIG_FPGA_VER (0x3F)
 
-#define TR_DELAY_EN_BASE_ADDR (0x100)
+#define TR_DELAY_OFFSET_BASE_ADDR (0x100)
+#define OUTPUT_EN_ADDR (TR_DELAY_OFFSET_BASE_ADDR + TRANS_NUM)
 
 #define CP_MOD_INIT (0x0100)
 #define CP_SEQ_INIT (0x0200)
@@ -53,7 +54,7 @@
 #define CMD_RD_FPGA_V_MSB (0x05)
 #define CMD_SEQ_MODE (0x06)
 #define CMD_CLEAR (0x09)
-#define CMD_SET_DELAY_EN (0x0A)
+#define CMD_SET_DELAY_OFFSET (0x0A)
 #define CMD_PAUSE (0x0B)
 #define CMD_RESUME (0x0C)
 
@@ -117,14 +118,13 @@ inline static uint64_t wait_sync0() {
   return next_sync0 + (uint64_t)ECATC.DC_SYNC0_CYC_TIME.LONG;
 }
 
-static void set_global_en(uint16_t v) {
+static void set_output_en(uint16_t v) {
   volatile uint16_t *base = (volatile uint16_t *)FPGA_BASE;
-  uint16_t addr = get_addr(BRAM_TR_SELECT, TR_DELAY_EN_BASE_ADDR + TRANS_NUM);
+  uint16_t addr = get_addr(BRAM_TR_SELECT, OUTPUT_EN_ADDR);
   base[addr] = v;
 }
-
-static void pause() { set_global_en(0x0000); }
-static void resume() { set_global_en(0xFFFF); }
+static void pause() { set_output_en(0x0000); }
+static void resume() { set_output_en(0xFFFF); }
 
 static void clear(void) {
   volatile uint16_t *base = (volatile uint16_t *)FPGA_BASE;
@@ -139,13 +139,15 @@ static void clear(void) {
   _mod_cycle = 4000;
   _mod_buf_fpga_write = 0;
   _mod_buf_write_end = false;
+  bram_write(BRAM_CONFIG_SELECT, CONFIG_MOD_CYCLE, _mod_cycle);
+  bram_write(BRAM_CONFIG_SELECT, CONFIG_MOD_DIV, 10);
   addr = get_addr(BRAM_MOD_SELECT, 0);
   word_set_volatile(&base[addr], 0xFFFF, _mod_cycle >> 1);
 
   addr = get_addr(BRAM_TR_SELECT, 0);
   word_set_volatile(&base[addr], 0x0000, TRANS_NUM);
 
-  addr = get_addr(BRAM_TR_SELECT, TR_DELAY_EN_BASE_ADDR);
+  addr = get_addr(BRAM_TR_SELECT, TR_DELAY_OFFSET_BASE_ADDR);
   word_set_volatile(&base[addr], 0xFF00, TRANS_NUM);
 
   bram_write(BRAM_CONFIG_SELECT, CONFIG_CF_AND_CP, SILENT);
@@ -267,16 +269,14 @@ static void cmd_op(RxGlobalHeader *header) {
   }
 }
 
-static void cmd_set_delay_en(void) {
+static void cmd_set_delay_offset(void) {
   volatile uint16_t *base = (volatile uint16_t *)FPGA_BASE;
-  uint16_t addr = get_addr(BRAM_TR_SELECT, TR_DELAY_EN_BASE_ADDR);
+  uint16_t addr = get_addr(BRAM_TR_SELECT, TR_DELAY_OFFSET_BASE_ADDR);
   word_cpy_volatile(&base[addr], _sRx0.data, TRANS_NUM);
 }
 
 static uint16_t get_cpu_version(void) { return CPU_VERSION; }
-
 static uint16_t get_fpga_version(void) { return bram_read(BRAM_CONFIG_SELECT, CONFIG_FPGA_VER); }
-
 static uint16_t read_fpga_info(void) { return bram_read(BRAM_CONFIG_SELECT, CONFIG_FPGA_INFO); }
 
 void update(void) {
@@ -349,8 +349,8 @@ void recv_ethercat(void) {
         recv_foci(header);
         break;
 
-      case CMD_SET_DELAY_EN:
-        cmd_set_delay_en();
+      case CMD_SET_DELAY_OFFSET:
+        cmd_set_delay_offset();
         break;
 
       case CMD_PAUSE:
