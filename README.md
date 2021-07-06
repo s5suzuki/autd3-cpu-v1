@@ -1,6 +1,6 @@
 # AUTD3 CPU firmware
 
-Version: 1.2.1
+Version: 1.3.0
 
 This repository contains the CPU design of [AUTD3](https://hapislab.org/airborne-ultrasound-tactile-display?lang=en).
 
@@ -51,10 +51,10 @@ Some codes has omitted because they contain proprietary parts.
 | 　          | 0x00F9    | unused                           | 　-  | 　                                                         |
 | 　          | ︙        | ︙                               | ︙　  | 　                                                         |
 | 　          | 0x00FF    | unused                         | -　  | 　                                                         |
-|             | 0x0100    | enable[0]/delay[0]                  | W   | 　                                                         |
+|             | 0x0100    | duty_offset[0]/delay[0]                  | W   | 　                                                         |
 | 　          | ︙        | ︙                               | ︙  | 　                                                         |
-| 　          | 0x01F8    | enable[248]/delay[248]              | W   | 　                                                         |
-| 　          | 0x01F9    | global enable                           | W　  | 　                                                         |
+| 　          | 0x01F8    | duty_offset[248]/delay[248]              | W   | 　                                                         |
+| 　          | 0x01F9    | output enable                           | W　  | 　                                                         |
 | 　          | 0x01FA    | unused                           | -　  | 　                                                         |
 | 　          | ︙        | ︙                               | 　︙  | 　                                                         |
 | 　          | 0x01FF    | unused                         | 　-  | 　                                                         |
@@ -85,6 +85,7 @@ Some codes has omitted because they contain proprietary parts.
 | 0x000A              | v1.0    | 
 | 0x000B              | v1.1    | 
 | 0x000C              | v1.2    | 
+| 0x000D              | v1.3    | 
 
 # Author
 
