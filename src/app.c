@@ -4,7 +4,7 @@
  * Created Date: 29/06/2020
  * Author: Shun Suzuki
  * -----
- * Last Modified: 05/07/2021
+ * Last Modified: 19/07/2021
  * Modified By: Shun Suzuki (suzuki@hapis.k.u-tokyo.ac.jp)
  * -----
  * Copyright (c) 2020 Hapis Lab. All rights reserved.
@@ -16,7 +16,7 @@
 #include "iodefine.h"
 #include "utils.h"
 
-#define CPU_VERSION (0x000D)  // v1.3
+#define CPU_VERSION (0x000E)  // v1.4
 
 #define MICRO_SECONDS (1000)
 
