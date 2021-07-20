@@ -1,6 +1,6 @@
 # AUTD3 CPU firmware
 
-Version: 1.4.0
+Version: 1.6
 
 This repository contains the CPU design of [AUTD3](https://hapislab.org/airborne-ultrasound-tactile-display?lang=en).
 
@@ -15,7 +15,7 @@ Some codes has omitted because they contain proprietary parts.
 
 | BRAM_SELECT | BRAM_ADDR | DATA                             | R/W | Note                                                       |
 |-------------|-----------|----------------------------------|-----|------------------------------------------------------------|
-| 0x0         | 0x0000    | Control flags and Clock property | R/W | 　                                                         |
+| 0x0         | 0x0000    | Control flags and Properties     | R/W | 　                                                         |
 | 　          | 0x0001    | FPGA info                         | W   | 　                                                         |
 | 　          | 0x0002    | Seq cycle                         | W   | 　                                                         |
 | 　          | 0x0003    | Seq clock division                | W   | 　                                                         |
@@ -36,7 +36,7 @@ Some codes has omitted because they contain proprietary parts.
 | 　          | 0x0012    | Mod clk sync time[63:48]          | W  | 　                                                         |
 | 　          | 0x0013    | unused                           | -  | 　                                                         |
 | 　          | ︙        | ︙                               | ︙ | 　                                                         |
-| 　          | 0x003E    | unused                           | ︙  | 　                                                         |
+| 　          | 0x003E    | unused                           | -  | 　                                                         |
 | 　          | 0x003F    | FPGA version number              | R   | 　                                                         |
 | 　          | 0x0040    | nil                              | -  | 　                                                         |
 | 　          | ︙        | 　                               | ︙　  | 　                                                         |
@@ -61,6 +61,12 @@ Some codes has omitted because they contain proprietary parts.
 | 　          | 0x0200    | nil                              | -　  | 　                                                         |
 | 　          | ︙        | ︙                               | 　︙  | 　                                                         |
 | 　          | 0x3FFF    | nil                              | -　  | 　                                                         |
+
+### Seq data mode == 0 
+
+
+| BRAM_SELECT | BRAM_ADDR | DATA                             | R/W | Note                                                       |
+|-------------|-----------|----------------------------------|-----|------------------------------------------------------------|
 | 0x3         | 0x00000   | lm_x[0][15:0]                    | W   | Below, the write address in the FPGA will be BRAM_ADDR+(Seq bram addr offset)*0x4000 |
 | 　          | 0x00001   | lm_y[0][13:0], lm_x[0][17:16]      | W   | 　                                                         |
 | 　          | 0x00002   | lm_z[0][11:0], lm_y[0][17:14]                    | W   | 　                                                         |
@@ -70,6 +76,26 @@ Some codes has omitted because they contain proprietary parts.
 | 　          | 0x3FFFC   | lm_x[65535][15:0]                | W   | 　                                                         |
 | 　          | ︙        | ︙                               | ︙  | 　                                                         |
 | 　          | 0x3FFFF   | 0b00, lm_duty[65535], lm_z[39999][17:12] | W   | 　                                                         |
+
+### Seq data mode == 1
+
+
+| BRAM_SELECT | BRAM_ADDR | DATA                             | R/W | Note                                                       |
+|-------------|-----------|----------------------------------|-----|------------------------------------------------------------|
+| 0x3         | 0x00000   | duty[0][0]/phase[0][0]                    | W   | Below, the write address in the FPGA will be BRAM_ADDR+(Seq bram addr offset)*0x4000 |
+| 　          | 0x00001   | duty[0][1]/phase[0][1]                     | W   | 　                                                         |
+| 　          | ︙   | ︙                    | ︙   | 　                                                         |
+| 　          | 0x000F8   | duty[0][248]/phase[0][248]                     | W   | 　                                                         |
+| 　          | 0x000F9   | unused                     | -   | 　                                                         |
+| 　          | ︙   | ︙                    | ︙   | 　                                                         |
+| 　          | 0x000FF   | unused                     | -   | 　                                                         |
+|             | 0x00100   | duty[1][0]/phase[1][0]                    | W   |  |
+| 　          | ︙   | ︙                    | ︙   | 　                                                         |
+| 　          | 0x3FFF8   | duty[1023][248]/phase[1023][248]                     | W   | 　                                                         |
+| 　          | 0x3FFF9   | unused                     | -  | 　                                                         |
+| 　          | ︙   | ︙                    | ︙   | 　                                                         |
+| 　          | 0x3FFFF   | unused                     | -   | 　                                                         |
+
 
 ## Firmware version number
 
@@ -86,7 +112,7 @@ Some codes has omitted because they contain proprietary parts.
 | 0x000B              | v1.1    | 
 | 0x000C              | v1.2    | 
 | 0x000D              | v1.3    | 
-| 0x000E              | v1.4    | 
+| 0x0010              | v1.6    | 
 
 # Author
 
