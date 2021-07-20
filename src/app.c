@@ -4,7 +4,7 @@
  * Created Date: 29/06/2020
  * Author: Shun Suzuki
  * -----
- * Last Modified: 20/07/2021
+ * Last Modified: 21/07/2021
  * Modified By: Shun Suzuki (suzuki@hapis.k.u-tokyo.ac.jp)
  * -----
  * Copyright (c) 2020 Hapis Lab. All rights reserved.
@@ -199,13 +199,13 @@ static void write_foci(volatile Focus *foci, uint16_t write) {
   }
 }
 
-static void recv_foci(RxGlobalHeader *header) {
+void recv_foci() {
   uint16_t seq_div;
   uint16_t wavelength;
   uint16_t seq_size = _sRx0.data[0];
   uint32_t offset = 1;
 
-  if ((header->control_flags & SEQ_BEGIN) != 0) {
+  if ((_ctrl_flag & SEQ_BEGIN) != 0) {
     _seq_cycle = 0;
     _seq_buf_fpga_write = 0;
     _seq_buf_write_end = false;
@@ -220,19 +220,19 @@ static void recv_foci(RxGlobalHeader *header) {
   write_foci((volatile Focus *)&_sRx0.data[offset], seq_size);
   _seq_cycle += seq_size;
 
-  if ((header->control_flags & SEQ_END) != 0) {
+  if ((_ctrl_flag & SEQ_END) != 0) {
     bram_write(BRAM_CONFIG_SELECT, CONFIG_SEQ_CYCLE, _seq_cycle);
     _seq_buf_write_end = true;
     _ack = 0;
   }
 }
 
-static void recv_gain_seq(RxGlobalHeader *header) {
+void recv_gain_seq() {
   volatile uint16_t *base = (uint16_t *)FPGA_BASE;
   uint16_t seq_div;
   uint16_t addr;
 
-  if ((header->control_flags & SEQ_BEGIN) != 0) {
+  if ((_ctrl_flag & SEQ_BEGIN) != 0) {
     _seq_cycle = 0;
     _seq_buf_fpga_write = 0;
     _seq_buf_write_end = false;
@@ -247,7 +247,7 @@ static void recv_gain_seq(RxGlobalHeader *header) {
   _seq_cycle++;
   if ((_seq_cycle & 0x3F) == 0) bram_write(BRAM_CONFIG_SELECT, CONFIG_SEQ_BRAM_OFFSET, _seq_cycle >> 6);
 
-  if ((header->control_flags & SEQ_END) != 0) {
+  if ((_ctrl_flag & SEQ_END) != 0) {
     bram_write(BRAM_CONFIG_SELECT, CONFIG_SEQ_CYCLE, _seq_cycle);
     _seq_buf_write_end = true;
     _ack = 0;
@@ -323,6 +323,7 @@ void update(void) {
   if (_seq_buf_write_end) {
     _seq_buf_write_end = false;
     init_fpga_seq_clk();
+    bram_write(BRAM_CONFIG_SELECT, CONFIG_CF_AND_CP, _ctrl_flag);
     resume();
     _ack = ((uint16_t)_header_id) << 8;
     if (_read_fpga_info) _ack |= read_fpga_info();
@@ -375,14 +376,12 @@ void recv_ethercat(void) {
 
       case CMD_SEQ_FOCI_MODE:
         _ctrl_flag = header->control_flags;
-        bram_write(BRAM_CONFIG_SELECT, CONFIG_CF_AND_CP, _ctrl_flag);
-        recv_foci(header);
+        recv_foci();
         break;
 
       case CMD_SEQ_GAIN_MODE:
         _ctrl_flag = CP_SEQ_DATA_MODE | header->control_flags;
-        bram_write(BRAM_CONFIG_SELECT, CONFIG_CF_AND_CP, _ctrl_flag);
-        recv_gain_seq(header);
+        recv_gain_seq();
         break;
 
       case CMD_SET_DELAY_OFFSET:
