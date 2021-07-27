@@ -4,7 +4,7 @@
  * Created Date: 29/06/2020
  * Author: Shun Suzuki
  * -----
- * Last Modified: 21/07/2021
+ * Last Modified: 27/07/2021
  * Modified By: Shun Suzuki (suzuki@hapis.k.u-tokyo.ac.jp)
  * -----
  * Copyright (c) 2020 Hapis Lab. All rights reserved.
@@ -16,11 +16,12 @@
 #include "iodefine.h"
 #include "utils.h"
 
-#define CPU_VERSION (0x0010)  // v1.6
+#define CPU_VERSION (0x0011) /* v1.7 */
 
 #define MICRO_SECONDS (1000)
 
 #define SEQ_BUF_FOCI_SEGMENT_SIZE (0xFFF)
+#define SEQ_BUF_GAIN_SEGMENT_SIZE (0x3F)
 #define MOD_BUF_SEGMENT_SIZE (0x7FFF)
 
 #define BRAM_CONFIG_SELECT (0)
@@ -60,6 +61,10 @@
 #define CMD_RESUME (0x0C)
 #define CMD_SEQ_GAIN_MODE (0x0D)
 
+#define GAIN_DATA_MODE_PHASE_DUTY_FULL (0x0000)
+#define GAIN_DATA_MODE_PHASE_FULL (0x0001)
+#define GAIN_DATA_MODE_PHASE_HALF (0x0002)
+
 extern RX_STR0 _sRx0;
 extern RX_STR1 _sRx1;
 extern TX_STR _sTx;
@@ -76,6 +81,8 @@ static volatile bool_t _mod_buf_write_end = 0;
 static volatile uint32_t _seq_cycle = 0;
 static volatile uint32_t _seq_buf_fpga_write = 0;
 static volatile bool_t _seq_buf_write_end = 0;
+static volatile uint16_t _seq_gain_data_mode = GAIN_DATA_MODE_PHASE_DUTY_FULL;
+static volatile uint16_t _seq_gain_size;
 
 static volatile uint16_t _ack;
 
@@ -192,9 +199,11 @@ static void write_foci(volatile Focus *foci, uint16_t write) {
   volatile uint16_t *base = (uint16_t *)FPGA_BASE;
   uint16_t i, addr;
   for (i = 0; i < write; i++) {
+    // 2bit left shift = *4=sizeof(Focus)/16
     addr = get_addr(BRAM_SEQ_SELECT, (_seq_buf_fpga_write & SEQ_BUF_FOCI_SEGMENT_SIZE) << 2);
     word_cpy_volatile(&base[addr], (volatile uint16_t *)&foci[i], sizeof(Focus) >> 1);
     _seq_buf_fpga_write++;
+    // 12bit right shift = /SEQ_BUF_FOCI_SEGMENT_SIZE
     if ((_seq_buf_fpga_write & SEQ_BUF_FOCI_SEGMENT_SIZE) == 0) bram_write(BRAM_CONFIG_SELECT, CONFIG_SEQ_BRAM_OFFSET, _seq_buf_fpga_write >> 12);
   }
 }
@@ -231,24 +240,78 @@ void recv_gain_seq() {
   volatile uint16_t *base = (uint16_t *)FPGA_BASE;
   uint16_t seq_div;
   uint16_t addr;
+  uint8_t i;
+  uint16_t duty = 0xFF00;
+  uint16_t phase;
 
   if ((_ctrl_flag & SEQ_BEGIN) != 0) {
     _seq_cycle = 0;
     _seq_buf_fpga_write = 0;
     _seq_buf_write_end = false;
+    _seq_gain_data_mode = _sRx0.data[0];
     bram_write(BRAM_CONFIG_SELECT, CONFIG_SEQ_BRAM_OFFSET, 0);
     seq_div = _sRx0.data[1];
     bram_write(BRAM_CONFIG_SELECT, CONFIG_SEQ_DIV, seq_div);
+    _seq_gain_size = _sRx0.data[2];
     return;
   }
 
-  addr = get_addr(BRAM_SEQ_SELECT, (_seq_cycle & 0x3F) << 8);
-  word_cpy_volatile(&base[addr], _sRx0.data, TRANS_NUM);
-  _seq_cycle++;
-  if ((_seq_cycle & 0x3F) == 0) bram_write(BRAM_CONFIG_SELECT, CONFIG_SEQ_BRAM_OFFSET, _seq_cycle >> 6);
+  // sizeof(SeqFocus) is 64 bit, thus, the memory address of the Gain data in Sequence is aligned to 64
+  // the number of transducers is 249, so the size of a Gain in Sequence is 16*256
+  addr = get_addr(BRAM_SEQ_SELECT, (_seq_cycle & SEQ_BUF_GAIN_SEGMENT_SIZE) << 8);
+
+  switch (_seq_gain_data_mode) {
+    case GAIN_DATA_MODE_PHASE_DUTY_FULL:
+      word_cpy_volatile(&base[addr], _sRx0.data, TRANS_NUM);
+      _seq_cycle++;
+      break;
+    case GAIN_DATA_MODE_PHASE_FULL:
+      for (i = 0; i < TRANS_NUM; i++) base[addr + i] = duty | (_sRx0.data[i] & 0x00FF);
+      _seq_cycle++;
+      addr = get_addr(BRAM_SEQ_SELECT, (_seq_cycle & SEQ_BUF_GAIN_SEGMENT_SIZE) << 8);
+      for (i = 0; i < TRANS_NUM; i++) base[addr + i] = duty | ((_sRx0.data[i] >> 8) & 0x00FF);
+      _seq_cycle++;
+      break;
+    case GAIN_DATA_MODE_PHASE_HALF:
+      for (i = 0; i < TRANS_NUM; i++) {
+        phase = _sRx0.data[i] & 0x000F;
+        phase = (phase << 4) + phase;
+        base[addr + i] = duty | phase;
+      }
+      _seq_cycle++;
+      addr = get_addr(BRAM_SEQ_SELECT, (_seq_cycle & SEQ_BUF_GAIN_SEGMENT_SIZE) << 8);
+      for (i = 0; i < TRANS_NUM; i++) {
+        phase = (_sRx0.data[i] >> 4) & 0x000F;
+        phase = (phase << 4) + phase;
+        base[addr + i] = duty | phase;
+      }
+      _seq_cycle++;
+      addr = get_addr(BRAM_SEQ_SELECT, (_seq_cycle & SEQ_BUF_GAIN_SEGMENT_SIZE) << 8);
+      for (i = 0; i < TRANS_NUM; i++) {
+        phase = (_sRx0.data[i] >> 8) & 0x000F;
+        phase = (phase << 4) + phase;
+        base[addr + i] = duty | phase;
+      }
+      _seq_cycle++;
+      addr = get_addr(BRAM_SEQ_SELECT, (_seq_cycle & SEQ_BUF_GAIN_SEGMENT_SIZE) << 8);
+      for (i = 0; i < TRANS_NUM; i++) {
+        phase = (_sRx0.data[i] >> 12) & 0x000F;
+        phase = (phase << 4) + phase;
+        base[addr + i] = duty | phase;
+      }
+      _seq_cycle++;
+      break;
+    default:
+      word_cpy_volatile(&base[addr], _sRx0.data, TRANS_NUM);
+      _seq_cycle++;
+      break;
+  }
+
+  // 6bit right shift = /SEQ_BUF_GAIN_SEGMENT_SIZE
+  if ((_seq_cycle & SEQ_BUF_GAIN_SEGMENT_SIZE) == 0) bram_write(BRAM_CONFIG_SELECT, CONFIG_SEQ_BRAM_OFFSET, _seq_cycle >> 6);
 
   if ((_ctrl_flag & SEQ_END) != 0) {
-    bram_write(BRAM_CONFIG_SELECT, CONFIG_SEQ_CYCLE, _seq_cycle);
+    bram_write(BRAM_CONFIG_SELECT, CONFIG_SEQ_CYCLE, _seq_gain_size);
     _seq_buf_write_end = true;
     _ack = 0;
   }
