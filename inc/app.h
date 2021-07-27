@@ -3,7 +3,7 @@
 // Created Date: 04/12/2020
 // Author: Shun Suzuki
 // -----
-// Last Modified: 16/06/2021
+// Last Modified: 27/07/2021
 // Modified By: Shun Suzuki (suzuki@hapis.k.u-tokyo.ac.jp)
 // -----
 // Copyright (c) 2020 Hapis Lab. All rights reserved.
@@ -36,8 +36,7 @@ typedef int bool_t;
 
 #define TRANS_NUM (249)
 
-// CS1 FPGA address
-#define FPGA_BASE (0x44000000)
+#define FPGA_BASE (0x44000000) /* CS1 FPGA address */
 
 inline static void word_cpy(uint16_t *dst, uint16_t *src, uint32_t cnt) {
   while (cnt-- > 0) *dst++ = *src++;
