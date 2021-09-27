@@ -4,7 +4,7 @@
  * Created Date: 29/06/2020
  * Author: Shun Suzuki
  * -----
- * Last Modified: 27/07/2021
+ * Last Modified: 27/09/2021
  * Modified By: Shun Suzuki (suzuki@hapis.k.u-tokyo.ac.jp)
  * -----
  * Copyright (c) 2020 Hapis Lab. All rights reserved.
@@ -16,7 +16,7 @@
 #include "iodefine.h"
 #include "utils.h"
 
-#define CPU_VERSION (0x0011) /* v1.7 */
+#define CPU_VERSION (0x0012) /* v1.8 */
 
 #define MICRO_SECONDS (1000)
 
@@ -45,6 +45,9 @@
 #define TR_DELAY_OFFSET_BASE_ADDR (0x100)
 #define OUTPUT_EN_ADDR (TR_DELAY_OFFSET_BASE_ADDR + TRANS_NUM)
 
+#define OUTPUT_EN_BIT (0x0001)
+#define OUTPUT_BALANCE_BIT (0x0002)
+
 #define CP_SEQ_DATA_MODE (0x0100)
 #define CP_MOD_INIT (0x4000)
 #define CP_SEQ_INIT (0x8000)
@@ -60,6 +63,8 @@
 #define CMD_PAUSE (0x0B)
 #define CMD_RESUME (0x0C)
 #define CMD_SEQ_GAIN_MODE (0x0D)
+#define CMD_ENABLE_BALANCE (0x0E)
+#define CMD_DISABLE_BALANCE (0x0F)
 
 #define GAIN_DATA_MODE_PHASE_DUTY_FULL (0x0001)
 #define GAIN_DATA_MODE_PHASE_FULL (0x0002)
@@ -72,6 +77,7 @@ extern TX_STR _sTx;
 static volatile uint8_t _header_id = 0;
 static volatile uint8_t _commnad = 0;
 static volatile uint16_t _ctrl_flag = 0;
+static volatile uint16_t _balance_en = 0;
 static volatile bool_t _read_fpga_info = false;
 
 static volatile uint32_t _mod_cycle = 0;
@@ -127,18 +133,34 @@ inline static uint64_t wait_sync0() {
   return next_sync0 + (uint64_t)ECATC.DC_SYNC0_CYC_TIME.LONG;
 }
 
-static void set_output_en(uint16_t v) {
+static void set_output_balance_en(uint16_t v) {
   volatile uint16_t *base = (volatile uint16_t *)FPGA_BASE;
   uint16_t addr = get_addr(BRAM_TR_SELECT, OUTPUT_EN_ADDR);
   base[addr] = v;
 }
-static void pause() { set_output_en(0x0000); }
-static void resume() { set_output_en(0xFFFF); }
-
+static void pause() {
+  _balance_en &= ~OUTPUT_EN_BIT;
+  set_output_balance_en(_balance_en);
+}
+static void resume() {
+  _balance_en |= OUTPUT_EN_BIT;
+  set_output_balance_en(_balance_en);
+}
+static void enable_balance() {
+  _balance_en |= OUTPUT_BALANCE_BIT;
+  set_output_balance_en(_balance_en);
+}
+static void disable_balance() {
+  _balance_en &= ~OUTPUT_BALANCE_BIT;
+  set_output_balance_en(_balance_en);
+}
 static void clear(void) {
   volatile uint16_t *base = (volatile uint16_t *)FPGA_BASE;
   uint16_t addr;
 
+  _ctrl_flag = 0;
+  _balance_en = 0;
+  _read_fpga_info = false;
   pause();
 
   _seq_cycle = 0;
@@ -457,6 +479,14 @@ void recv_ethercat(void) {
 
       case CMD_RESUME:
         resume();
+        break;
+
+      case CMD_ENABLE_BALANCE:
+        enable_balance();
+        break;
+
+      case CMD_DISABLE_BALANCE:
+        disable_balance();
         break;
 
       default:
