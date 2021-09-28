@@ -3,7 +3,7 @@
 // Created Date: 17/06/2020
 // Author: Shun Suzuki
 // -----
-// Last Modified: 17/05/2021
+// Last Modified: 28/09/2021
 // Modified By: Shun Suzuki (suzuki@hapis.k.u-tokyo.ac.jp)
 // -----
 // Copyright (c) 2020 Hapis Lab. All rights reserved.
@@ -29,5 +29,7 @@ __attribute__((noinline)) static void wait_ns(uint32_t value) {
       :
       : "r"(wait));
 }
+
+inline static uint16_t max(uint32_t a, uint32_t b) { return a < b ? b : a; }
 
 #endif  // INC_UTILS_H_

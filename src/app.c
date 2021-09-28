@@ -4,7 +4,7 @@
  * Created Date: 29/06/2020
  * Author: Shun Suzuki
  * -----
- * Last Modified: 27/09/2021
+ * Last Modified: 28/09/2021
  * Modified By: Shun Suzuki (suzuki@hapis.k.u-tokyo.ac.jp)
  * -----
  * Copyright (c) 2020 Hapis Lab. All rights reserved.
@@ -43,14 +43,12 @@
 #define CONFIG_FPGA_VER (0x3F)
 
 #define TR_DELAY_OFFSET_BASE_ADDR (0x100)
-#define OUTPUT_EN_ADDR (TR_DELAY_OFFSET_BASE_ADDR + TRANS_NUM)
 
-#define OUTPUT_EN_BIT (0x0001)
-#define OUTPUT_BALANCE_BIT (0x0002)
-
-#define CP_SEQ_DATA_MODE (0x0100)
 #define CP_MOD_INIT (0x4000)
 #define CP_SEQ_INIT (0x8000)
+
+#define OP_MODE_NORMAL (0)
+#define OP_MODE_SEQ (1)
 
 #define CMD_OP (0x00)
 #define CMD_RD_CPU_V_LSB (0x02)
@@ -60,11 +58,7 @@
 #define CMD_SEQ_FOCI_MODE (0x06)
 #define CMD_CLEAR (0x09)
 #define CMD_SET_DELAY_OFFSET (0x0A)
-#define CMD_PAUSE (0x0B)
-#define CMD_RESUME (0x0C)
 #define CMD_SEQ_GAIN_MODE (0x0D)
-#define CMD_ENABLE_BALANCE (0x0E)
-#define CMD_DISABLE_BALANCE (0x0F)
 
 #define GAIN_DATA_MODE_PHASE_DUTY_FULL (0x0001)
 #define GAIN_DATA_MODE_PHASE_FULL (0x0002)
@@ -77,7 +71,6 @@ extern TX_STR _sTx;
 static volatile uint8_t _header_id = 0;
 static volatile uint8_t _commnad = 0;
 static volatile uint16_t _ctrl_flag = 0;
-static volatile uint16_t _balance_en = 0;
 static volatile bool_t _read_fpga_info = false;
 
 static volatile uint32_t _mod_cycle = 0;
@@ -100,23 +93,30 @@ extern void init_app(void);
 extern void update(void);
 
 typedef enum {
-  MOD_BEGIN = 1 << 0,
-  MOD_END = 1 << 1,
-  READ_FPGA_INFO = 1 << 2,
+  OUTPUT_ENABLE = 1 << 0,
+  OUTPUT_BALANCE = 1 << 1,
   SILENT = 1 << 3,
   FORCE_FAN = 1 << 4,
-  SEQ_MODE = 1 << 5,
-  SEQ_BEGIN = 1 << 6,
-  SEQ_END = 1 << 7,
-} RxGlobalControlFlags;
+  OP_MODE = 1 << 5,
+  SEQ_MODE = 1 << 6,
+} FPGAControlFlags;
+
+typedef enum {
+  MOD_BEGIN = 1 << 0,
+  MOD_END = 1 << 1,
+  SEQ_BEGIN = 1 << 2,
+  SEQ_END = 1 << 3,
+  READS_FPGA_INFO = 1 << 4,
+} CPUControlFlags;
 
 typedef struct {
   uint8_t msg_id;
   uint8_t control_flags;
   uint8_t command;
+  uint8_t command_flags;
   uint8_t mod_size;
-  uint8_t mod[124];
-} RxGlobalHeader;
+  uint8_t mod[123];
+} GlobalHeader;
 
 inline static uint64_t wait_sync0() {
   volatile uint64_t sys_time;
@@ -133,35 +133,12 @@ inline static uint64_t wait_sync0() {
   return next_sync0 + (uint64_t)ECATC.DC_SYNC0_CYC_TIME.LONG;
 }
 
-static void set_output_balance_en(uint16_t v) {
-  volatile uint16_t *base = (volatile uint16_t *)FPGA_BASE;
-  uint16_t addr = get_addr(BRAM_TR_SELECT, OUTPUT_EN_ADDR);
-  base[addr] = v;
-}
-static void pause() {
-  _balance_en &= ~OUTPUT_EN_BIT;
-  set_output_balance_en(_balance_en);
-}
-static void resume() {
-  _balance_en |= OUTPUT_EN_BIT;
-  set_output_balance_en(_balance_en);
-}
-static void enable_balance() {
-  _balance_en |= OUTPUT_BALANCE_BIT;
-  set_output_balance_en(_balance_en);
-}
-static void disable_balance() {
-  _balance_en &= ~OUTPUT_BALANCE_BIT;
-  set_output_balance_en(_balance_en);
-}
 static void clear(void) {
   volatile uint16_t *base = (volatile uint16_t *)FPGA_BASE;
   uint16_t addr;
 
   _ctrl_flag = 0;
-  _balance_en = 0;
   _read_fpga_info = false;
-  pause();
 
   _seq_cycle = 0;
   _seq_buf_fpga_write = 0;
@@ -170,7 +147,7 @@ static void clear(void) {
   _mod_cycle = 4000;
   _mod_buf_fpga_write = 0;
   _mod_buf_write_end = false;
-  bram_write(BRAM_CONFIG_SELECT, CONFIG_MOD_CYCLE, _mod_cycle);
+  bram_write(BRAM_CONFIG_SELECT, CONFIG_MOD_CYCLE, max(1, _mod_cycle) - 1);
   bram_write(BRAM_CONFIG_SELECT, CONFIG_MOD_DIV, 10);
   addr = get_addr(BRAM_MOD_SELECT, 0);
   word_set_volatile(&base[addr], 0xFFFF, _mod_cycle >> 1);
@@ -230,13 +207,13 @@ static void write_foci(volatile Focus *foci, uint16_t write) {
   }
 }
 
-void recv_foci() {
+void recv_foci(GlobalHeader *header) {
   uint16_t seq_div;
   uint16_t wavelength;
   uint16_t seq_size = _sRx0.data[0];
   uint32_t offset = 1;
 
-  if ((_ctrl_flag & SEQ_BEGIN) != 0) {
+  if ((header->command_flags & SEQ_BEGIN) != 0) {
     _seq_cycle = 0;
     _seq_buf_fpga_write = 0;
     _seq_buf_write_end = false;
@@ -251,14 +228,14 @@ void recv_foci() {
   write_foci((volatile Focus *)&_sRx0.data[offset], seq_size);
   _seq_cycle += seq_size;
 
-  if ((_ctrl_flag & SEQ_END) != 0) {
-    bram_write(BRAM_CONFIG_SELECT, CONFIG_SEQ_CYCLE, _seq_cycle);
+  if ((header->command_flags & SEQ_END) != 0) {
+    bram_write(BRAM_CONFIG_SELECT, CONFIG_SEQ_CYCLE, max(1, _seq_cycle) - 1);
     _seq_buf_write_end = true;
     _ack = 0;
   }
 }
 
-void recv_gain_seq() {
+void recv_gain_seq(GlobalHeader *header) {
   volatile uint16_t *base = (uint16_t *)FPGA_BASE;
   uint16_t seq_div;
   uint16_t addr;
@@ -266,7 +243,7 @@ void recv_gain_seq() {
   uint16_t duty = 0xFF00;
   uint16_t phase;
 
-  if ((_ctrl_flag & SEQ_BEGIN) != 0) {
+  if ((header->command_flags & SEQ_BEGIN) != 0) {
     _seq_cycle = 0;
     _seq_buf_fpga_write = 0;
     _seq_buf_write_end = false;
@@ -332,8 +309,8 @@ void recv_gain_seq() {
   // 6bit right shift = /SEQ_BUF_GAIN_SEGMENT_SIZE
   if ((_seq_cycle & SEQ_BUF_GAIN_SEGMENT_SIZE) == 0) bram_write(BRAM_CONFIG_SELECT, CONFIG_SEQ_BRAM_OFFSET, _seq_cycle >> 6);
 
-  if ((_ctrl_flag & SEQ_END) != 0) {
-    bram_write(BRAM_CONFIG_SELECT, CONFIG_SEQ_CYCLE, _seq_gain_size);
+  if ((header->command_flags & SEQ_END) != 0) {
+    bram_write(BRAM_CONFIG_SELECT, CONFIG_SEQ_CYCLE, max(1, _seq_gain_size) - 1);
     _seq_buf_write_end = true;
     _ack = 0;
   }
@@ -351,20 +328,18 @@ static void init_fpga_seq_clk(void) {
   while ((bram_read(BRAM_CONFIG_SELECT, CONFIG_CF_AND_CP) & CP_SEQ_INIT) != 0x0000) wait_ns(50 * MICRO_SECONDS);
 }
 
-static void cmd_op(RxGlobalHeader *header) {
+static void cmd_op(GlobalHeader *header) {
   volatile uint16_t *base = (volatile uint16_t *)FPGA_BASE;
   uint16_t addr;
   uint16_t mod_div;
   uint32_t offset = 0;
 
-  resume();
-
-  if ((header->control_flags & SEQ_MODE) == 0) {
+  if ((header->control_flags & OP_MODE) == OP_MODE_NORMAL) {
     addr = get_addr(BRAM_TR_SELECT, 0);
     word_cpy_volatile(&base[addr], _sRx0.data, TRANS_NUM);
   }
 
-  if ((header->control_flags & MOD_BEGIN) != 0) {
+  if ((header->command_flags & MOD_BEGIN) != 0) {
     _mod_cycle = 0;
     _mod_buf_fpga_write = 0;
     _mod_buf_write_end = false;
@@ -376,8 +351,8 @@ static void cmd_op(RxGlobalHeader *header) {
   write_mod((volatile uint16_t *)&header->mod[offset], header->mod_size);
   _mod_cycle += header->mod_size;
 
-  if ((header->control_flags & MOD_END) != 0) {
-    bram_write(BRAM_CONFIG_SELECT, CONFIG_MOD_CYCLE, _mod_cycle);
+  if ((header->command_flags & MOD_END) != 0) {
+    bram_write(BRAM_CONFIG_SELECT, CONFIG_MOD_CYCLE, max(1, _mod_cycle) - 1);
     _mod_buf_write_end = true;
     _ack = 0;
   }
@@ -408,8 +383,6 @@ void update(void) {
   if (_seq_buf_write_end) {
     _seq_buf_write_end = false;
     init_fpga_seq_clk();
-    bram_write(BRAM_CONFIG_SELECT, CONFIG_CF_AND_CP, _ctrl_flag);
-    resume();
     _ack = ((uint16_t)_header_id) << 8;
     if (_read_fpga_info) _ack |= read_fpga_info();
   }
@@ -425,74 +398,57 @@ void update(void) {
 }
 
 void recv_ethercat(void) {
-  RxGlobalHeader *header = (RxGlobalHeader *)(_sRx1.data);
-  if (header->msg_id != _header_id) {
-    _header_id = header->msg_id;
-    _ack = ((uint16_t)(header->msg_id)) << 8;
-    _read_fpga_info = (header->control_flags & READ_FPGA_INFO) != 0;
-    if (_read_fpga_info) _ack |= read_fpga_info();
+  GlobalHeader *header = (GlobalHeader *)(_sRx1.data);
+  if (header->msg_id == _header_id) return;
+  _header_id = header->msg_id;
+  _ack = ((uint16_t)(header->msg_id)) << 8;
+  _read_fpga_info = (header->command_flags & READS_FPGA_INFO) != 0;
+  if (_read_fpga_info) _ack |= read_fpga_info();
 
-    switch (header->command) {
-      case CMD_OP:
-        cmd_op(header);
-        _ctrl_flag = (_ctrl_flag & 0xFF00) | header->control_flags;
-        bram_write(BRAM_CONFIG_SELECT, CONFIG_CF_AND_CP, _ctrl_flag);
-        break;
+  switch (header->command) {
+    case CMD_OP:
+      cmd_op(header);
+      _ctrl_flag = header->control_flags;
+      bram_write(BRAM_CONFIG_SELECT, CONFIG_CF_AND_CP, _ctrl_flag);
+      break;
 
-      case CMD_CLEAR:
-        clear();
-        break;
+    case CMD_CLEAR:
+      clear();
+      break;
 
-      case CMD_RD_CPU_V_LSB:
-        _ack = (_ack & 0xFF00) | (get_cpu_version() & 0xFF);
-        break;
+    case CMD_RD_CPU_V_LSB:
+      _ack = (_ack & 0xFF00) | (get_cpu_version() & 0xFF);
+      break;
 
-      case CMD_RD_CPU_V_MSB:
-        _ack = (_ack & 0xFF00) | ((get_cpu_version() >> 8) & 0xFF);
-        break;
+    case CMD_RD_CPU_V_MSB:
+      _ack = (_ack & 0xFF00) | ((get_cpu_version() >> 8) & 0xFF);
+      break;
 
-      case CMD_RD_FPGA_V_LSB:
-        _ack = (_ack & 0xFF00) | (get_fpga_version() & 0xFF);
-        break;
+    case CMD_RD_FPGA_V_LSB:
+      _ack = (_ack & 0xFF00) | (get_fpga_version() & 0xFF);
+      break;
 
-      case CMD_RD_FPGA_V_MSB:
-        _ack = (_ack & 0xFF00) | ((get_fpga_version() >> 8) & 0xFF);
-        break;
+    case CMD_RD_FPGA_V_MSB:
+      _ack = (_ack & 0xFF00) | ((get_fpga_version() >> 8) & 0xFF);
+      break;
 
-      case CMD_SEQ_FOCI_MODE:
-        _ctrl_flag = header->control_flags;
-        recv_foci();
-        break;
+    case CMD_SEQ_FOCI_MODE:
+      _ctrl_flag = header->control_flags;
+      recv_foci(header);
+      break;
 
-      case CMD_SEQ_GAIN_MODE:
-        _ctrl_flag = CP_SEQ_DATA_MODE | header->control_flags;
-        recv_gain_seq();
-        break;
+    case CMD_SEQ_GAIN_MODE:
+      _ctrl_flag = header->control_flags;
+      recv_gain_seq(header);
+      break;
 
-      case CMD_SET_DELAY_OFFSET:
-        cmd_set_delay_offset();
-        break;
+    case CMD_SET_DELAY_OFFSET:
+      cmd_set_delay_offset();
+      break;
 
-      case CMD_PAUSE:
-        pause();
-        break;
-
-      case CMD_RESUME:
-        resume();
-        break;
-
-      case CMD_ENABLE_BALANCE:
-        enable_balance();
-        break;
-
-      case CMD_DISABLE_BALANCE:
-        disable_balance();
-        break;
-
-      default:
-        break;
-    }
-    _sTx.ack = _ack;
-    _commnad = header->command;
+    default:
+      break;
   }
+  _sTx.ack = _ack;
+  _commnad = header->command;
 }
