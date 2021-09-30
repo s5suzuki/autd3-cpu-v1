@@ -4,7 +4,7 @@
  * Created Date: 29/06/2020
  * Author: Shun Suzuki
  * -----
- * Last Modified: 28/09/2021
+ * Last Modified: 30/09/2021
  * Modified By: Shun Suzuki (suzuki@hapis.k.u-tokyo.ac.jp)
  * -----
  * Copyright (c) 2020 Hapis Lab. All rights reserved.
@@ -124,7 +124,7 @@ inline static uint64_t wait_sync0() {
   while (true) {
     sys_time = ECATC.DC_SYS_TIME.LONGLONG;
     if (sys_time > next_sync0) {
-      if (sys_time < next_sync0 + 200 * MICRO_SECONDS)
+      if (sys_time < next_sync0 + 500 * MICRO_SECONDS)
         break;
       else
         next_sync0 = ECATC.DC_CYC_START_TIME.LONGLONG;
@@ -137,8 +137,9 @@ static void clear(void) {
   volatile uint16_t *base = (volatile uint16_t *)FPGA_BASE;
   uint16_t addr;
 
-  _ctrl_flag = 0;
+  _ctrl_flag = SILENT;
   _read_fpga_info = false;
+  bram_write(BRAM_CONFIG_SELECT, CONFIG_CF_AND_CP, _ctrl_flag);
 
   _seq_cycle = 0;
   _seq_buf_fpga_write = 0;
@@ -157,8 +158,6 @@ static void clear(void) {
 
   addr = get_addr(BRAM_TR_SELECT, TR_DELAY_OFFSET_BASE_ADDR);
   word_set_volatile(&base[addr], 0xFF00, TRANS_NUM);
-
-  bram_write(BRAM_CONFIG_SELECT, CONFIG_CF_AND_CP, SILENT);
 }
 
 void init_app(void) { clear(); }
@@ -380,16 +379,18 @@ void update(void) {
       break;
   }
 
-  if (_seq_buf_write_end) {
-    _seq_buf_write_end = false;
-    init_fpga_seq_clk();
+  if (_mod_buf_write_end) {
+    _mod_buf_write_end = false;
+    init_mod_clk();
     _ack = ((uint16_t)_header_id) << 8;
     if (_read_fpga_info) _ack |= read_fpga_info();
   }
 
-  if (_mod_buf_write_end) {
-    _mod_buf_write_end = false;
-    init_mod_clk();
+  if (_seq_buf_write_end) {
+    _seq_buf_write_end = false;
+    init_fpga_seq_clk();
+    _ctrl_flag |= OUTPUT_ENABLE;
+    bram_write(BRAM_CONFIG_SELECT, CONFIG_CF_AND_CP, _ctrl_flag);
     _ack = ((uint16_t)_header_id) << 8;
     if (_read_fpga_info) _ack |= read_fpga_info();
   }
