@@ -136,7 +136,7 @@ static void clear(void) {
   _mod_buf_fpga_write = 0;
   _mod_buf_write_end = false;
   bram_write(BRAM_CONFIG_SELECT, CONFIG_MOD_CYCLE, max(1, _mod_cycle) - 1);
-  bram_write(BRAM_CONFIG_SELECT, CONFIG_MOD_DIV, 10);
+  bram_write(BRAM_CONFIG_SELECT, CONFIG_MOD_DIV, 10 - 1);
   addr = get_addr(BRAM_MOD_SELECT, 0);
   word_set_volatile(&base[addr], 0xFFFF, _mod_cycle >> 1);
 
@@ -162,7 +162,7 @@ static void write_mod(void) {
     _mod_buf_write_end = false;
     bram_write(BRAM_CONFIG_SELECT, CONFIG_MOD_BRAM_OFFSET, 0);
     mod_div = (((uint16_t)header->mod[1] << 8) & 0xFF00) | (header->mod[0] & 0x00FF);
-    bram_write(BRAM_CONFIG_SELECT, CONFIG_MOD_DIV, max(1, mod_div) - 1);
+    bram_write(BRAM_CONFIG_SELECT, CONFIG_MOD_DIV, mod_div);
     offset += 2;
   }
 
@@ -214,7 +214,7 @@ static void recv_point_seq(void) {
     _seq_buf_write_end = false;
     bram_write(BRAM_CONFIG_SELECT, CONFIG_SEQ_BRAM_OFFSET, 0);
     seq_div = _sRx0.data[1];
-    bram_write(BRAM_CONFIG_SELECT, CONFIG_SEQ_DIV, max(1, seq_div) - 1);
+    bram_write(BRAM_CONFIG_SELECT, CONFIG_SEQ_DIV, seq_div);
     wavelength = _sRx0.data[2];
     bram_write(BRAM_CONFIG_SELECT, CONFIG_WAVELENGTH_UM, wavelength);
     offset += 4;
