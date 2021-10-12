@@ -7,7 +7,7 @@
  * Last Modified: 13/10/2021
  * Modified By: Shun Suzuki (suzuki@hapis.k.u-tokyo.ac.jp)
  * -----
- * Copyright (c) 2020 Hapis Lab. All rights reserved.
+ * Copyright (c) 2020-2021 Hapis Lab. All rights reserved.
  *
  */
 
@@ -66,7 +66,6 @@ extern RX_STR1 _sRx1;
 extern TX_STR _sTx;
 
 static volatile uint8_t _header_id = 0;
-static volatile uint8_t _commnad = 0;
 static volatile uint16_t _ctrl_flag = 0;
 static volatile bool_t _read_fpga_info = false;
 
@@ -148,7 +147,7 @@ static void clear(void) {
   word_set_volatile(&base[addr], 0xFF00, TRANS_NUM);
 }
 
-static write_mod(void) {
+static void write_mod(void) {
   GlobalHeader *header = (GlobalHeader *)(_sRx1.data);
   volatile uint16_t *base = (volatile uint16_t *)FPGA_BASE;
   uint16_t addr;
@@ -168,7 +167,6 @@ static write_mod(void) {
   }
 
   mod = (volatile uint16_t *)&header->mod[offset];
-  write_mod(, header->mod_size);
   for (i = 0; i < (header->mod_size >> 1); i++) {
     addr = get_addr(BRAM_MOD_SELECT, (_mod_buf_fpga_write & MOD_BUF_SEGMENT_SIZE) >> 1);
     word_cpy_volatile(&base[addr], &mod[i], 1);
@@ -320,7 +318,7 @@ static void recv_gain_seq(void) {
   }
 }
 
-inline static uint64_t next_sync0() {
+inline static uint64_t get_next_sync0(void) {
   volatile uint64_t next_sync0 = ECATC.DC_CYC_START_TIME.LONGLONG;
   volatile uint64_t sys_time = ECATC.DC_SYS_TIME.LONGLONG;
   while (next_sync0 < sys_time + 250 * MICRO_SECONDS) {
@@ -333,7 +331,7 @@ inline static uint64_t next_sync0() {
 static void init_mod_clk() {
   volatile uint16_t *base = (volatile uint16_t *)FPGA_BASE;
   uint16_t addr = get_addr(BRAM_CONFIG_SELECT, CONFIG_MOD_SYNC_TIME_BASE);
-  uint64_t next_sync0 = next_sync0();
+  uint64_t next_sync0 = get_next_sync0();
   word_cpy_volatile(&base[addr], (volatile uint16_t *)&next_sync0, sizeof(uint64_t));
   bram_write(BRAM_CONFIG_SELECT, CONFIG_CTRL_FLAG, CP_MOD_INIT | _ctrl_flag);
 }
@@ -341,7 +339,7 @@ static void init_mod_clk() {
 static void init_fpga_seq_clk(void) {
   volatile uint16_t *base = (volatile uint16_t *)FPGA_BASE;
   uint16_t addr = get_addr(BRAM_CONFIG_SELECT, CONFIG_SEQ_SYNC_TIME_BASE);
-  uint64_t next_sync0 = next_sync0();
+  uint64_t next_sync0 = get_next_sync0();
   word_cpy_volatile(&base[addr], (volatile uint16_t *)&next_sync0, sizeof(uint64_t));
   bram_write(BRAM_CONFIG_SELECT, CONFIG_CTRL_FLAG, CP_SEQ_INIT | _ctrl_flag);
 }
@@ -398,7 +396,7 @@ void recv_ethercat(void) {
       _ack = (_ack & 0xFF00) | ((get_fpga_version() >> 8) & 0xFF);
       break;
     default:
-      _ctrl_flag = header->control_flags;
+      _ctrl_flag = header->fpga_ctrl_flags;
       bram_write(BRAM_CONFIG_SELECT, CONFIG_CTRL_FLAG, _ctrl_flag);
       write_mod();
       if ((header->cpu_ctrl_flags & DELAY_OFFSET) != 0) {
