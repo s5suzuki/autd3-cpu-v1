@@ -4,7 +4,7 @@
  * Created Date: 29/06/2020
  * Author: Shun Suzuki
  * -----
- * Last Modified: 12/10/2021
+ * Last Modified: 13/10/2021
  * Modified By: Shun Suzuki (suzuki@hapis.k.u-tokyo.ac.jp)
  * -----
  * Copyright (c) 2020 Hapis Lab. All rights reserved.
@@ -29,7 +29,7 @@
 #define BRAM_TR_SELECT (2)
 #define BRAM_SEQ_SELECT (3)
 
-#define CONFIG_CF_AND_CP (0x00)
+#define CONFIG_CTRL_FLAG (0x00)
 #define CONFIG_FPGA_INFO (0x01)
 #define CONFIG_SEQ_CYCLE (0x02)
 #define CONFIG_SEQ_DIV (0x03)
@@ -78,9 +78,9 @@ static volatile uint32_t _seq_cycle = 0;
 static volatile uint32_t _seq_buf_fpga_write = 0;
 static volatile bool_t _seq_buf_write_end = 0;
 static volatile uint16_t _seq_gain_data_mode = GAIN_DATA_MODE_PHASE_DUTY_FULL;
-static volatile uint16_t _seq_gain_size;
+static volatile uint16_t _seq_gain_size = 0;
 
-static volatile uint16_t _ack;
+static volatile uint16_t _ack = 0;
 
 // fire when ethercat packet arrives
 extern void recv_ethercat(void);
@@ -127,7 +127,7 @@ static void clear(void) {
 
   _ctrl_flag = SILENT;
   _read_fpga_info = false;
-  bram_write(BRAM_CONFIG_SELECT, CONFIG_CF_AND_CP, _ctrl_flag);
+  bram_write(BRAM_CONFIG_SELECT, CONFIG_CTRL_FLAG, _ctrl_flag);
 
   _seq_cycle = 0;
   _seq_buf_fpga_write = 0;
@@ -188,19 +188,19 @@ static write_mod(void) {
   }
 }
 
-static void cmd_set_delay_offset(void) {
+static void set_delay_offset(void) {
   volatile uint16_t *base = (volatile uint16_t *)FPGA_BASE;
   uint16_t addr = get_addr(BRAM_TR_SELECT, TR_DELAY_OFFSET_BASE_ADDR);
   word_cpy_volatile(&base[addr], _sRx0.data, TRANS_NUM);
 }
 
-static void cmd_op(void) {
+static void normal_op(void) {
   volatile uint16_t *base = (volatile uint16_t *)FPGA_BASE;
   uint16_t addr = get_addr(BRAM_TR_SELECT, 0);
   word_cpy_volatile(&base[addr], _sRx0.data, TRANS_NUM);
 }
 
-static void recv_foci(void) {
+static void recv_point_seq(void) {
   GlobalHeader *header = (GlobalHeader *)(_sRx1.data);
   volatile uint16_t *base = (uint16_t *)FPGA_BASE;
   uint16_t seq_div;
@@ -239,7 +239,7 @@ static void recv_foci(void) {
   }
 }
 
-void recv_gain_seq(void) {
+static void recv_gain_seq(void) {
   GlobalHeader *header = (GlobalHeader *)(_sRx1.data);
   volatile uint16_t *base = (uint16_t *)FPGA_BASE;
   uint16_t seq_div;
@@ -335,7 +335,7 @@ static void init_mod_clk() {
   uint16_t addr = get_addr(BRAM_CONFIG_SELECT, CONFIG_MOD_SYNC_TIME_BASE);
   uint64_t next_sync0 = next_sync0();
   word_cpy_volatile(&base[addr], (volatile uint16_t *)&next_sync0, sizeof(uint64_t));
-  bram_write(BRAM_CONFIG_SELECT, CONFIG_CF_AND_CP, CP_MOD_INIT | _ctrl_flag);
+  bram_write(BRAM_CONFIG_SELECT, CONFIG_CTRL_FLAG, CP_MOD_INIT | _ctrl_flag);
 }
 
 static void init_fpga_seq_clk(void) {
@@ -343,7 +343,7 @@ static void init_fpga_seq_clk(void) {
   uint16_t addr = get_addr(BRAM_CONFIG_SELECT, CONFIG_SEQ_SYNC_TIME_BASE);
   uint64_t next_sync0 = next_sync0();
   word_cpy_volatile(&base[addr], (volatile uint16_t *)&next_sync0, sizeof(uint64_t));
-  bram_write(BRAM_CONFIG_SELECT, CONFIG_CF_AND_CP, CP_SEQ_INIT | _ctrl_flag);
+  bram_write(BRAM_CONFIG_SELECT, CONFIG_CTRL_FLAG, CP_SEQ_INIT | _ctrl_flag);
 }
 
 void init_app(void) { clear(); }
@@ -357,8 +357,6 @@ void update(void) {
   if (_seq_buf_write_end) {
     _seq_buf_write_end = false;
     init_fpga_seq_clk();
-    _ctrl_flag |= OUTPUT_ENABLE;
-    bram_write(BRAM_CONFIG_SELECT, CONFIG_CF_AND_CP, _ctrl_flag);
   }
 
   switch (_header_id) {
@@ -401,18 +399,17 @@ void recv_ethercat(void) {
       break;
     default:
       _ctrl_flag = header->control_flags;
-      bram_write(BRAM_CONFIG_SELECT, CONFIG_CF_AND_CP, _ctrl_flag);
+      bram_write(BRAM_CONFIG_SELECT, CONFIG_CTRL_FLAG, _ctrl_flag);
       write_mod();
       if ((header->cpu_ctrl_flags & DELAY_OFFSET) != 0) {
-        cmd_set_delay_offset();
+        set_delay_offset();
       } else if ((header->fpga_ctrl_flags & OP_MODE) == OP_MODE_NORMAL) {
-        cmd_op();
+        normal_op();
       } else {
-        if ((header->fpga_ctrl_flags & OP_MODE) == OP_MODE_NORMAL) {
-          recv_foci();
-        } else {
+        if ((header->fpga_ctrl_flags & OP_MODE) == SEQ_MODE_POINT)
+          recv_point_seq();
+        else
           recv_gain_seq();
-        }
       }
       break;
   }
