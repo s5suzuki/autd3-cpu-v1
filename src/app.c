@@ -40,7 +40,7 @@
 #define CONFIG_MOD_CYCLE (0x0D)
 #define CONFIG_MOD_DIV (0x0E)
 #define CONFIG_MOD_SYNC_TIME_BASE (0x0F)
-#define CONFIG_CLK_INI_FLAG (0x13)
+#define CONFIG_CLK_INIT_FLAG (0x13)
 #define CONFIG_FPGA_VER (0x3F)
 
 #define TR_DELAY_OFFSET_BASE_ADDR (0x100)
@@ -65,7 +65,7 @@ extern RX_STR0 _sRx0;
 extern RX_STR1 _sRx1;
 extern TX_STR _sTx;
 
-static volatile uint8_t _header_id = 0;
+static volatile uint8_t _msg_id = 0;
 static volatile uint16_t _ctrl_flag = 0;
 static volatile bool_t _read_fpga_info = false;
 
@@ -106,6 +106,7 @@ typedef enum {
   SEQ_END = 1 << 3,
   READS_FPGA_INFO = 1 << 4,
   DELAY_OFFSET = 1 << 5,
+  WRITE_BODY = 1 << 6,
 } CPUControlFlags;
 
 typedef struct {
@@ -328,36 +329,33 @@ inline static uint64_t get_next_sync0(void) {
   return next_sync0;
 }
 
-static void init_mod_clk() {
+static void write_sync0(void) {
   volatile uint16_t *base = (volatile uint16_t *)FPGA_BASE;
   uint16_t addr = get_addr(BRAM_CONFIG_SELECT, CONFIG_MOD_SYNC_TIME_BASE);
   uint64_t next_sync0 = get_next_sync0();
   word_cpy_volatile(&base[addr], (volatile uint16_t *)&next_sync0, sizeof(uint64_t));
-  bram_write(BRAM_CONFIG_SELECT, CONFIG_CLK_INI_FLAG, CP_MOD_INIT);
-}
-
-static void init_fpga_seq_clk(void) {
-  volatile uint16_t *base = (volatile uint16_t *)FPGA_BASE;
-  uint16_t addr = get_addr(BRAM_CONFIG_SELECT, CONFIG_SEQ_SYNC_TIME_BASE);
-  uint64_t next_sync0 = get_next_sync0();
-  word_cpy_volatile(&base[addr], (volatile uint16_t *)&next_sync0, sizeof(uint64_t));
-  bram_write(BRAM_CONFIG_SELECT, CONFIG_CLK_INI_FLAG, CP_SEQ_INIT);
 }
 
 void init_app(void) { clear(); }
 
 void update(void) {
-  if (_mod_buf_write_end) {
+  if (_mod_buf_write_end && _seq_buf_write_end) {
     _mod_buf_write_end = false;
-    init_mod_clk();
-  }
-
-  if (_seq_buf_write_end) {
     _seq_buf_write_end = false;
-    init_fpga_seq_clk();
+    write_sync0();
+    bram_write(BRAM_CONFIG_SELECT, CONFIG_CLK_INIT_FLAG, CP_MOD_INIT);
+    bram_write(BRAM_CONFIG_SELECT, CONFIG_CLK_INIT_FLAG, CP_SEQ_INIT);
+  } else if (_mod_buf_write_end) {
+    _mod_buf_write_end = false;
+    write_sync0();
+    bram_write(BRAM_CONFIG_SELECT, CONFIG_CLK_INIT_FLAG, CP_MOD_INIT);
+  } else if (_seq_buf_write_end) {
+    _seq_buf_write_end = false;
+    write_sync0();
+    bram_write(BRAM_CONFIG_SELECT, CONFIG_CLK_INIT_FLAG, CP_SEQ_INIT);
   }
 
-  switch (_header_id) {
+  switch (_msg_id) {
     case MSG_RD_CPU_V_LSB:
     case MSG_RD_CPU_V_MSB:
     case MSG_RD_FPGA_V_LSB:
@@ -373,13 +371,13 @@ void update(void) {
 
 void recv_ethercat(void) {
   GlobalHeader *header = (GlobalHeader *)(_sRx1.data);
-  if (header->msg_id == _header_id) return;
-  _header_id = header->msg_id;
+  if (header->msg_id == _msg_id) return;
+  _msg_id = header->msg_id;
   _ack = ((uint16_t)(header->msg_id)) << 8;
   _read_fpga_info = (header->cpu_ctrl_flags & READS_FPGA_INFO) != 0;
-  if (_read_fpga_info) _ack |= read_fpga_info();
+  if (_read_fpga_info) _ack = (_ack & 0xFF00) | read_fpga_info();
 
-  switch (_header_id) {
+  switch (_msg_id) {
     case MSG_CLEAR:
       clear();
       break;
@@ -399,11 +397,12 @@ void recv_ethercat(void) {
       _ctrl_flag = header->fpga_ctrl_flags;
       bram_write(BRAM_CONFIG_SELECT, CONFIG_CTRL_FLAG, _ctrl_flag);
       write_mod();
-      if ((header->cpu_ctrl_flags & DELAY_OFFSET) != 0) {
+      if ((header->cpu_ctrl_flags & WRITE_BODY) == 0) break;
+      if ((header->cpu_ctrl_flags & DELAY_OFFSET) != 0)
         set_delay_offset();
-      } else if ((header->fpga_ctrl_flags & OP_MODE) == OP_MODE_NORMAL) {
+      else if ((header->fpga_ctrl_flags & OP_MODE) == OP_MODE_NORMAL)
         normal_op();
-      } else {
+      else {
         if ((header->fpga_ctrl_flags & SEQ_MODE) == SEQ_MODE_POINT)
           recv_point_seq();
         else
