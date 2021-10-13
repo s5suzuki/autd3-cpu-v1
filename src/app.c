@@ -404,7 +404,7 @@ void recv_ethercat(void) {
       } else if ((header->fpga_ctrl_flags & OP_MODE) == OP_MODE_NORMAL) {
         normal_op();
       } else {
-        if ((header->fpga_ctrl_flags & OP_MODE) == SEQ_MODE_POINT)
+        if ((header->fpga_ctrl_flags & SEQ_MODE) == SEQ_MODE_POINT)
           recv_point_seq();
         else
           recv_gain_seq();
