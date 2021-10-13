@@ -333,7 +333,7 @@ static void init_mod_clk() {
   uint16_t addr = get_addr(BRAM_CONFIG_SELECT, CONFIG_MOD_SYNC_TIME_BASE);
   uint64_t next_sync0 = get_next_sync0();
   word_cpy_volatile(&base[addr], (volatile uint16_t *)&next_sync0, sizeof(uint64_t));
-  bram_write(BRAM_CONFIG_SELECT, CONFIG_CTRL_FLAG, CP_MOD_INIT | _ctrl_flag);
+  bram_write(BRAM_CONFIG_SELECT, CONFIG_CLK_INI_FLAG, CP_MOD_INIT);
 }
 
 static void init_fpga_seq_clk(void) {
@@ -341,7 +341,7 @@ static void init_fpga_seq_clk(void) {
   uint16_t addr = get_addr(BRAM_CONFIG_SELECT, CONFIG_SEQ_SYNC_TIME_BASE);
   uint64_t next_sync0 = get_next_sync0();
   word_cpy_volatile(&base[addr], (volatile uint16_t *)&next_sync0, sizeof(uint64_t));
-  bram_write(BRAM_CONFIG_SELECT, CONFIG_CTRL_FLAG, CP_SEQ_INIT | _ctrl_flag);
+  bram_write(BRAM_CONFIG_SELECT, CONFIG_CLK_INI_FLAG, CP_SEQ_INIT);
 }
 
 void init_app(void) { clear(); }
