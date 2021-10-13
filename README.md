@@ -55,7 +55,8 @@ Some codes has omitted because they contain proprietary parts.
 |             | 0x0100    | duty_offset[0]/delay_reset[0]/delay[0]                  | W   |                                                          |
 |           | ︙        | ︙                               | ︙  |                                                          |
 |           | 0x01F8    | duty_offset[248]/delay_reset[248]/delay[248]              | W   |                                                          |
-|           | 0x01F9    | unused                           | -  |                                                          |
+|           | 0x01F9    | delay reset                           | W  |                                                          |
+|           | 0x01FA    | unused                           | -  |                                                          |
 |           | ︙        | ︙                               | ︙  |                                                          |
 |           | 0x01FF    | unused                         | -  |                                                          |
 |           | 0x0200    | nil                              | -  |                                                          |

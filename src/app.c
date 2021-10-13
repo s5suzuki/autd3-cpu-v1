@@ -4,7 +4,7 @@
  * Created Date: 29/06/2020
  * Author: Shun Suzuki
  * -----
- * Last Modified: 13/10/2021
+ * Last Modified: 14/10/2021
  * Modified By: Shun Suzuki (suzuki@hapis.k.u-tokyo.ac.jp)
  * -----
  * Copyright (c) 2020-2021 Hapis Lab. All rights reserved.
@@ -79,6 +79,8 @@ static volatile bool_t _seq_buf_write_end = 0;
 static volatile uint16_t _seq_gain_data_mode = GAIN_DATA_MODE_PHASE_DUTY_FULL;
 static volatile uint16_t _seq_gain_size = 0;
 
+static volatile uint16_t _delay_rst = 0;
+
 static volatile uint16_t _ack = 0;
 
 // fire when ethercat packet arrives
@@ -146,6 +148,8 @@ static void clear(void) {
 
   addr = get_addr(BRAM_TR_SELECT, TR_DELAY_OFFSET_BASE_ADDR);
   word_set_volatile(&base[addr], 0xFF00, TRANS_NUM);
+  _delay_rst = 0;
+  bram_write(BRAM_TR_SELECT, TR_DELAY_OFFSET_BASE_ADDR + TRANS_NUM, _delay_rst);
 }
 
 static void write_mod(void) {
@@ -191,6 +195,8 @@ static void set_delay_offset(void) {
   volatile uint16_t *base = (volatile uint16_t *)FPGA_BASE;
   uint16_t addr = get_addr(BRAM_TR_SELECT, TR_DELAY_OFFSET_BASE_ADDR);
   word_cpy_volatile(&base[addr], _sRx0.data, TRANS_NUM);
+  _delay_rst = ~_delay_rst;
+  bram_write(BRAM_TR_SELECT, TR_DELAY_OFFSET_BASE_ADDR + TRANS_NUM, _delay_rst);
 }
 
 static void normal_op(void) {
