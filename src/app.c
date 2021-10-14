@@ -346,21 +346,21 @@ void update(void) {
     _seq_buf_write_end = false;
     next_sync0 = get_next_sync0();
     addr = get_addr(BRAM_CONFIG_SELECT, CONFIG_MOD_SYNC_TIME_BASE);
-    word_cpy_volatile(&base[addr], (volatile uint16_t *)&next_sync0, sizeof(uint64_t));
+    word_cpy_volatile(&base[addr], (volatile uint16_t *)&next_sync0, sizeof(uint64_t) >> 1);
     addr = get_addr(BRAM_CONFIG_SELECT, CONFIG_SEQ_SYNC_TIME_BASE);
-    word_cpy_volatile(&base[addr], (volatile uint16_t *)&next_sync0, sizeof(uint64_t));
+    word_cpy_volatile(&base[addr], (volatile uint16_t *)&next_sync0, sizeof(uint64_t) >> 1);
     bram_write(BRAM_CONFIG_SELECT, CONFIG_CLK_INIT_FLAG, CP_MOD_INIT | CP_SEQ_INIT);
   } else if (_mod_buf_write_end) {
     _mod_buf_write_end = false;
     next_sync0 = get_next_sync0();
     addr = get_addr(BRAM_CONFIG_SELECT, CONFIG_MOD_SYNC_TIME_BASE);
-    word_cpy_volatile(&base[addr], (volatile uint16_t *)&next_sync0, sizeof(uint64_t));
+    word_cpy_volatile(&base[addr], (volatile uint16_t *)&next_sync0, sizeof(uint64_t) >> 1);
     bram_write(BRAM_CONFIG_SELECT, CONFIG_CLK_INIT_FLAG, CP_MOD_INIT);
   } else if (_seq_buf_write_end) {
     _seq_buf_write_end = false;
     next_sync0 = get_next_sync0();
     addr = get_addr(BRAM_CONFIG_SELECT, CONFIG_SEQ_SYNC_TIME_BASE);
-    word_cpy_volatile(&base[addr], (volatile uint16_t *)&next_sync0, sizeof(uint64_t));
+    word_cpy_volatile(&base[addr], (volatile uint16_t *)&next_sync0, sizeof(uint64_t) >> 1);
     bram_write(BRAM_CONFIG_SELECT, CONFIG_CLK_INIT_FLAG, CP_SEQ_INIT);
   }
 
