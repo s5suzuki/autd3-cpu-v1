@@ -1,6 +1,6 @@
 # AUTD3 CPU firmware
 
-Version: 1.8
+Version: 1.9
 
 This repository contains the CPU design of [AUTD3](https://hapislab.org/airborne-ultrasound-tactile-display?lang=en).
 
@@ -15,33 +15,34 @@ Some codes has omitted because they contain proprietary parts.
 
 | BRAM_SELECT | BRAM_ADDR | DATA                             | R/W | Note                                                       |
 |-------------|-----------|----------------------------------|-----|------------------------------------------------------------|
-| 0x0         | 0x0000    | Control flags and Properties     | R/W |                                                          |
+| 0x0         | 0x0000    | Control flags                    | W |                                                          |
 |           | 0x0001    | FPGA info                         | W   |                                                          |
-|           | 0x0002    | Seq cycle                         | W   |                                                          |
-|           | 0x0003    | Seq clock division                | W   |                                                          |
+|           | 0x0002    | Sequence cycle                         | W   |                                                          |
+|           | 0x0003    | Sequence freq division ratio                | W   |                                                          |
 |           | 0x0004    | -                                 | -   |                                                          |
 |           | 0x0005    | -                                 | -   |                                                          |
-|           | 0x0006    | Mod bram addr offset              | W  |                                                          |
-|           | 0x0007    | Seq bram addr offset              | W  |                                                          |
+|           | 0x0006    | Modulation bram addr offset              | W  |                                                          |
+|           | 0x0007    | Sequence bram addr offset              | W  |                                                          |
 |           | 0x0008    | Wavelength in micro meters        | W  |                                                          |
-|           | 0x0009    | Seq clk sync time[15:0]           | W  |                                                          |
-|           | 0x000A    | Seq clk sync time[31:16]          | W  |                                                          |
-|           | 0x000B    | Seq clk sync time[47:32]          | W  |                                                          |
-|           | 0x000C    | Seq clk sync time[63:48]          | W  |                                                          |
+|           | 0x0009    | Sequence clock sync time[15:0]           | W  |                                                          |
+|           | 0x000A    | Sequence clock sync time[31:16]          | W  |                                                          |
+|           | 0x000B    | Sequence clock sync time[47:32]          | W  |                                                          |
+|           | 0x000C    | Sequence clock sync time[63:48]          | W  |                                                          |
 |           | 0x000D    | Modulation cycle                  | W  |                                                          |
-|           | 0x000E    | Modulation clock division         | W  |                                                          |
-|           | 0x000F    | Mod clk sync time[15:0]           | W  |                                                          |
-|           | 0x0010    | Mod clk sync time[31:16]          | W  |                                                          |
-|           | 0x0011    | Mod clk sync time[47:32]          | W  |                                                          |
-|           | 0x0012    | Mod clk sync time[63:48]          | W  |                                                          |
-|           | 0x0013    | unused                           | -  |                                                          |
+|           | 0x000E    | Modulation freq division ratio         | W  |                                                          |
+|           | 0x000F    | Modulation clock sync time[15:0]           | W  |                                                          |
+|           | 0x0010    | Modulation clock sync time[31:16]          | W  |                                                          |
+|           | 0x0011    | Modulation clock sync time[47:32]          | W  |                                                          |
+|           | 0x0012    | Modulation clock sync time[63:48]          | W  |                                                          |
+|           | 0x0013    | clock init flags                           | W  |                                                          |
+|           | 0x0014    | unused                           | -  |                                                          |
 |           | ︙        | ︙                               | ︙ |                                                          |
 |           | 0x003E    | unused                           | -  |                                                          |
 |           | 0x003F    | FPGA version number              | R   |                                                          |
 |           | 0x0040    | nil                              | -  |                                                          |
 |           | ︙        |                                | ︙  |                                                          |
 |           | 0x3FFF    | nil                              | -  |                                                          |
-| 0x1         | 0x0000    | mod[1]/mod[0]                    | W   | Below, the write address in the FPGA will be BRAM_ADDR+(Mod bram addr offset)*0x4000                                                         |
+| 0x1         | 0x0000    | mod[1]/mod[0]                    | W   | Below, the write address in the FPGA will be BRAM_ADDR+(Modulation bram addr offset)*0x4000                                                         |
 |           | 0x0001    | mod[3]/mod[2]                    | W   |                                                          |
 |           | ︙        | ︙                               | ︙  |                                                          |
 |           | 0x7FFF    | mod[65535]/mod[65534]              | W   |                                                          |
@@ -51,10 +52,10 @@ Some codes has omitted because they contain proprietary parts.
 |           | 0x00F9    | unused                           | -  |                                                          |
 |           | ︙        | ︙                               | ︙  |                                                          |
 |           | 0x00FF    | unused                         | -  |                                                          |
-|             | 0x0100    | duty_offset[0]/delay[0]                  | W   |                                                          |
+|             | 0x0100    | duty_offset[0]/delay_reset[0]/delay[0]                  | W   |                                                          |
 |           | ︙        | ︙                               | ︙  |                                                          |
-|           | 0x01F8    | duty_offset[248]/delay[248]              | W   |                                                          |
-|           | 0x01F9    | output balance/enable                           | W  |                                                          |
+|           | 0x01F8    | duty_offset[248]/delay_reset[248]/delay[248]              | W   |                                                          |
+|           | 0x01F9    | delay reset                           | W  |                                                          |
 |           | 0x01FA    | unused                           | -  |                                                          |
 |           | ︙        | ︙                               | ︙  |                                                          |
 |           | 0x01FF    | unused                         | -  |                                                          |
@@ -62,27 +63,25 @@ Some codes has omitted because they contain proprietary parts.
 |           | ︙        | ︙                               | ︙  |                                                          |
 |           | 0x3FFF    | nil                              | -  |                                                          |
 
-### Seq data mode == 0 
-
-
-| BRAM_SELECT | BRAM_ADDR | DATA                             | R/W | Note                                                       |
-|-------------|-----------|----------------------------------|-----|------------------------------------------------------------|
-| 0x3         | 0x00000   | lm_x[0][15:0]                    | W   | Below, the write address in the FPGA will be BRAM_ADDR+(Seq bram addr offset)*0x4000 |
-|           | 0x00001   | lm_y[0][13:0], lm_x[0][17:16]      | W   |                                                          |
-|           | 0x00002   | lm_z[0][11:0], lm_y[0][17:14]                    | W   |                                                          |
-|           | 0x00003   | 0b00, lm_duty[0], lm_z[0][17:12]                    | W   |                                                          |
-|           | 0x00004   | lm_x[1][15:0]                    | W   |                                                          |
-|           | ︙        | ︙                               | ︙  |                                                          |
-|           | 0x3FFFC   | lm_x[65535][15:0]                | W   |                                                          |
-|           | ︙        | ︙                               | ︙  |                                                          |
-|           | 0x3FFFF   | 0b00, lm_duty[65535], lm_z[39999][17:12] | W   |                                                          |
-
-### Seq data mode == 1
-
+### Sequence data mode == 0 
 
 | BRAM_SELECT | BRAM_ADDR | DATA                             | R/W | Note                                                       |
 |-------------|-----------|----------------------------------|-----|------------------------------------------------------------|
-| 0x3         | 0x00000   | duty[0][0]/phase[0][0]                    | W   | Below, the write address in the FPGA will be BRAM_ADDR+(Seq bram addr offset)*0x4000 |
+| 0x3         | 0x00000   | x[0][15:0]                    | W   | Below, the write address in the FPGA will be BRAM_ADDR+(Sequence bram addr offset)*0x4000 |
+|           | 0x00001   | y[0][13:0], x[0][17:16]      | W   |                                                          |
+|           | 0x00002   | z[0][11:0], y[0][17:14]                    | W   |                                                          |
+|           | 0x00003   | 0b00, duty[0], z[0][17:12]                    | W   |                                                          |
+|           | 0x00004   | x[1][15:0]                    | W   |                                                          |
+|           | ︙        | ︙                               | ︙  |                                                          |
+|           | 0x3FFFC   | x[65535][15:0]                | W   |                                                          |
+|           | ︙        | ︙                               | ︙  |                                                          |
+|           | 0x3FFFF   | 0b00, duty[65535], z[39999][17:12] | W   |                                                          |
+
+### Sequence data mode == 1
+
+| BRAM_SELECT | BRAM_ADDR | DATA                             | R/W | Note                                                       |
+|-------------|-----------|----------------------------------|-----|------------------------------------------------------------|
+| 0x3         | 0x00000   | duty[0][0]/phase[0][0]                    | W   | Below, the write address in the FPGA will be BRAM_ADDR+(Sequence bram addr offset)*0x4000 |
 |           | 0x00001   | duty[0][1]/phase[0][1]                     | W   |                                                          |
 |           | ︙   | ︙                    | ︙   |                                                          |
 |           | 0x000F8   | duty[0][248]/phase[0][248]                     | W   |                                                          |
@@ -114,6 +113,7 @@ Some codes has omitted because they contain proprietary parts.
 | 0x0010              | v1.6    | 
 | 0x0011              | v1.7    | 
 | 0x0012              | v1.8    | 
+| 0x0013              | v1.9    | 
 
 # Author
 
