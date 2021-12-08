@@ -1,6 +1,6 @@
 # AUTD3 CPU firmware
 
-Version: 1.9
+Version: 1.10
 
 This repository contains the CPU design of [AUTD3](https://hapislab.org/airborne-ultrasound-tactile-display?lang=en).
 
@@ -99,21 +99,22 @@ Some codes has omitted because they contain proprietary parts.
 
 | Version number | Version | 
 |----------------|---------| 
-| 0x0000              | v0.3 or former | 
-| 0x0001              | v0.4    | 
-| 0x0002              | v0.5    | 
-| 0x0003              | v0.6    | 
-| 0x0004              | v0.7    | 
-| 0x0005              | v0.8    | 
-| 0x0006              | v0.9    | 
-| 0x000A              | v1.0    | 
-| 0x000B              | v1.1    | 
-| 0x000C              | v1.2    | 
-| 0x000D              | v1.3    | 
-| 0x0010              | v1.6    | 
-| 0x0011              | v1.7    | 
-| 0x0012              | v1.8    | 
-| 0x0013              | v1.9    | 
+| 0x0000 (0)         | v0.3 or former | 
+| 0x0001 (1)         | v0.4    | 
+| 0x0002 (2)         | v0.5    | 
+| 0x0003 (3)         | v0.6    | 
+| 0x0004 (4)         | v0.7    | 
+| 0x0005 (5)         | v0.8    | 
+| 0x0006 (6)         | v0.9    | 
+| 0x000A (10)         | v1.0    | 
+| 0x000B (11)         | v1.1    | 
+| 0x000C (12)         | v1.2    | 
+| 0x000D (13)         | v1.3    | 
+| 0x0010 (16)         | v1.6    | 
+| 0x0011 (17)         | v1.7    | 
+| 0x0012 (18)         | v1.8    | 
+| 0x0013 (19)         | v1.9    | 
+| 0x0014 (20)         | v1.10    | 
 
 # Author
 

@@ -4,7 +4,7 @@
  * Created Date: 29/06/2020
  * Author: Shun Suzuki
  * -----
- * Last Modified: 14/10/2021
+ * Last Modified: 09/12/2021
  * Modified By: Shun Suzuki (suzuki@hapis.k.u-tokyo.ac.jp)
  * -----
  * Copyright (c) 2020-2021 Hapis Lab. All rights reserved.
@@ -16,7 +16,7 @@
 #include "iodefine.h"
 #include "utils.h"
 
-#define CPU_VERSION (0x0013) /* v1.9 */
+#define CPU_VERSION (0x0014) /* v1.10 */
 
 #define MICRO_SECONDS (1000)
 
@@ -79,6 +79,7 @@ static volatile bool_t _seq_buf_write_end = 0;
 static volatile uint16_t _seq_gain_data_mode = GAIN_DATA_MODE_PHASE_DUTY_FULL;
 static volatile uint16_t _seq_gain_size = 0;
 
+static volatile bool_t _wait_on_sync = false;
 static volatile uint16_t _delay_rst = 0;
 
 static volatile uint16_t _ack = 0;
@@ -109,6 +110,7 @@ typedef enum {
   READS_FPGA_INFO = 1 << 4,
   DELAY_OFFSET = 1 << 5,
   WRITE_BODY = 1 << 6,
+  WAIT_ON_SYNC = 1 << 7,
 } CPUControlFlags;
 
 typedef struct {
@@ -284,28 +286,28 @@ static void recv_gain_seq(void) {
     case GAIN_DATA_MODE_PHASE_HALF:
       for (i = 0; i < TRANS_NUM; i++) {
         phase = _sRx0.data[i] & 0x000F;
-        phase = (phase << 4) + phase;
+        phase = (phase << 4) | phase;
         base[addr + i] = duty | phase;
       }
       _seq_cycle++;
       addr = get_addr(BRAM_SEQ_SELECT, (_seq_cycle & SEQ_BUF_GAIN_SEGMENT_SIZE) << 8);
       for (i = 0; i < TRANS_NUM; i++) {
         phase = (_sRx0.data[i] >> 4) & 0x000F;
-        phase = (phase << 4) + phase;
+        phase = (phase << 4) | phase;
         base[addr + i] = duty | phase;
       }
       _seq_cycle++;
       addr = get_addr(BRAM_SEQ_SELECT, (_seq_cycle & SEQ_BUF_GAIN_SEGMENT_SIZE) << 8);
       for (i = 0; i < TRANS_NUM; i++) {
         phase = (_sRx0.data[i] >> 8) & 0x000F;
-        phase = (phase << 4) + phase;
+        phase = (phase << 4) | phase;
         base[addr + i] = duty | phase;
       }
       _seq_cycle++;
       addr = get_addr(BRAM_SEQ_SELECT, (_seq_cycle & SEQ_BUF_GAIN_SEGMENT_SIZE) << 8);
       for (i = 0; i < TRANS_NUM; i++) {
         phase = (_sRx0.data[i] >> 12) & 0x000F;
-        phase = (phase << 4) + phase;
+        phase = (phase << 4) | phase;
         base[addr + i] = duty | phase;
       }
       _seq_cycle++;
@@ -350,6 +352,7 @@ void update(void) {
     addr = get_addr(BRAM_CONFIG_SELECT, CONFIG_SEQ_SYNC_TIME_BASE);
     word_cpy_volatile(&base[addr], (volatile uint16_t *)&next_sync0, sizeof(uint64_t) >> 1);
     bram_write(BRAM_CONFIG_SELECT, CONFIG_CLK_INIT_FLAG, CP_MOD_INIT | CP_SEQ_INIT);
+    if (_wait_on_sync) bram_write(BRAM_CONFIG_SELECT, CONFIG_CTRL_FLAG, _ctrl_flag);
   } else if (_mod_buf_write_end) {
     _mod_buf_write_end = false;
     next_sync0 = get_next_sync0();
@@ -362,6 +365,7 @@ void update(void) {
     addr = get_addr(BRAM_CONFIG_SELECT, CONFIG_SEQ_SYNC_TIME_BASE);
     word_cpy_volatile(&base[addr], (volatile uint16_t *)&next_sync0, sizeof(uint64_t) >> 1);
     bram_write(BRAM_CONFIG_SELECT, CONFIG_CLK_INIT_FLAG, CP_SEQ_INIT);
+    if (_wait_on_sync) bram_write(BRAM_CONFIG_SELECT, CONFIG_CTRL_FLAG, _ctrl_flag);
   }
 
   switch (_msg_id) {
@@ -404,15 +408,21 @@ void recv_ethercat(void) {
       break;
     default:
       _ctrl_flag = header->fpga_ctrl_flags;
-      bram_write(BRAM_CONFIG_SELECT, CONFIG_CTRL_FLAG, _ctrl_flag);
+      _wait_on_sync = (header->cpu_ctrl_flags & WAIT_ON_SYNC) != 0;
       write_mod();
-      if ((header->cpu_ctrl_flags & WRITE_BODY) == 0) break;
-      if ((header->cpu_ctrl_flags & DELAY_OFFSET) != 0)
+      if ((header->cpu_ctrl_flags & WRITE_BODY) == 0) {
+        bram_write(BRAM_CONFIG_SELECT, CONFIG_CTRL_FLAG, _ctrl_flag);
+        break;
+      }
+      if ((header->cpu_ctrl_flags & DELAY_OFFSET) != 0) {
+        bram_write(BRAM_CONFIG_SELECT, CONFIG_CTRL_FLAG, _ctrl_flag);
         set_delay_offset();
-      else if ((header->fpga_ctrl_flags & OP_MODE) == OP_MODE_NORMAL)
+      } else if ((_ctrl_flag & OP_MODE) == OP_MODE_NORMAL) {
+        bram_write(BRAM_CONFIG_SELECT, CONFIG_CTRL_FLAG, _ctrl_flag);
         normal_op();
-      else {
-        if ((header->fpga_ctrl_flags & SEQ_MODE) == SEQ_MODE_POINT)
+      } else {
+        if (!_wait_on_sync) bram_write(BRAM_CONFIG_SELECT, CONFIG_CTRL_FLAG, _ctrl_flag);
+        if ((_ctrl_flag & SEQ_MODE) == SEQ_MODE_POINT)
           recv_point_seq();
         else
           recv_gain_seq();
