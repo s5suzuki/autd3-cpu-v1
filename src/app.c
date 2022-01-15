@@ -409,11 +409,14 @@ void recv_ethercat(void) {
       _ack = (_ack & 0xFF00) | ((get_fpga_version() >> 8) & 0xFF);
       break;
     default:
+      if ((header->cpu_ctrl_flags & SET_SILENT_STEP) != 0) {
+        bram_write(BRAM_CONFIG_SELECT, CONFIG_SILENT_STEP, (uint16_t)header->mod_size);
+        break;
+      }
       _ctrl_flag = header->fpga_ctrl_flags;
       _wait_on_sync = (header->cpu_ctrl_flags & WAIT_ON_SYNC) != 0;
       write_mod();
       if ((header->cpu_ctrl_flags & WRITE_BODY) == 0) {
-        if ((header->cpu_ctrl_flags & SET_SILENT_STEP) != 0) bram_write(BRAM_CONFIG_SELECT, CONFIG_SILENT_STEP, _sRx0.data[0]);
         bram_write(BRAM_CONFIG_SELECT, CONFIG_CTRL_FLAG, _ctrl_flag);
         break;
       }
