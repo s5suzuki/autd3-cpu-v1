@@ -1,6 +1,6 @@
 # AUTD3 CPU firmware
 
-Version: 1.10
+Version: 1.11
 
 This repository contains the CPU design of [AUTD3](https://hapislab.org/airborne-ultrasound-tactile-display?lang=en).
 
@@ -35,7 +35,8 @@ Some codes has omitted because they contain proprietary parts.
 |           | 0x0011    | Modulation clock sync time[47:32]          | W  |                                                          |
 |           | 0x0012    | Modulation clock sync time[63:48]          | W  |                                                          |
 |           | 0x0013    | clock init flags                           | W  |                                                          |
-|           | 0x0014    | unused                           | -  |                                                          |
+|           | 0x0014    | Silent step                           | W  |                                                          |
+|           | 0x0015    | unused                           | -  |                                                          |
 |           | ︙        | ︙                               | ︙ |                                                          |
 |           | 0x003E    | unused                           | -  |                                                          |
 |           | 0x003F    | FPGA version number              | R   |                                                          |
@@ -115,7 +116,8 @@ Some codes has omitted because they contain proprietary parts.
 | 0x0012 (18)         | v1.8    | 
 | 0x0013 (19)         | v1.9    | 
 | 0x0014 (20)         | v1.10    | 
+| 0x0015 (21)         | v1.11    | 
 
 # Author
 
-Shun Suzuki, 2020-2021
+Shun Suzuki, 2020-2022

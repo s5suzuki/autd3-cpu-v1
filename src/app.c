@@ -4,7 +4,7 @@
  * Created Date: 29/06/2020
  * Author: Shun Suzuki
  * -----
- * Last Modified: 09/12/2021
+ * Last Modified: 15/01/2022
  * Modified By: Shun Suzuki (suzuki@hapis.k.u-tokyo.ac.jp)
  * -----
  * Copyright (c) 2020-2021 Hapis Lab. All rights reserved.
@@ -16,7 +16,7 @@
 #include "iodefine.h"
 #include "utils.h"
 
-#define CPU_VERSION (0x0014) /* v1.10 */
+#define CPU_VERSION (0x0015) /* v1.11 */
 
 #define MICRO_SECONDS (1000)
 
@@ -41,6 +41,7 @@
 #define CONFIG_MOD_DIV (0x0E)
 #define CONFIG_MOD_SYNC_TIME_BASE (0x0F)
 #define CONFIG_CLK_INIT_FLAG (0x13)
+#define CONFIG_SILENT_STEP (0x14)
 #define CONFIG_FPGA_VER (0x3F)
 
 #define TR_DELAY_OFFSET_BASE_ADDR (0x100)
@@ -94,7 +95,7 @@ extern void update(void);
 typedef enum {
   OUTPUT_ENABLE = 1 << 0,
   OUTPUT_BALANCE = 1 << 1,
-  //
+  READS_FPGA_INFO = 1 << 2,
   SILENT = 1 << 3,
   FORCE_FAN = 1 << 4,
   OP_MODE = 1 << 5,
@@ -107,7 +108,7 @@ typedef enum {
   MOD_END = 1 << 1,
   SEQ_BEGIN = 1 << 2,
   SEQ_END = 1 << 3,
-  READS_FPGA_INFO = 1 << 4,
+  SET_SILENT_STEP = 1 << 4,
   DELAY_OFFSET = 1 << 5,
   WRITE_BODY = 1 << 6,
   WAIT_ON_SYNC = 1 << 7,
@@ -132,6 +133,7 @@ static void clear(void) {
   _ctrl_flag = SILENT;
   _read_fpga_info = false;
   bram_write(BRAM_CONFIG_SELECT, CONFIG_CTRL_FLAG, _ctrl_flag);
+  bram_write(BRAM_CONFIG_SELECT, CONFIG_SILENT_STEP, 1);
 
   _seq_cycle = 0;
   _seq_buf_fpga_write = 0;
@@ -387,7 +389,7 @@ void recv_ethercat(void) {
   if (header->msg_id == _msg_id) return;
   _msg_id = header->msg_id;
   _ack = ((uint16_t)(header->msg_id)) << 8;
-  _read_fpga_info = (header->cpu_ctrl_flags & READS_FPGA_INFO) != 0;
+  _read_fpga_info = (header->fpga_ctrl_flags & READS_FPGA_INFO) != 0;
   if (_read_fpga_info) _ack = (_ack & 0xFF00) | read_fpga_info();
 
   switch (_msg_id) {
@@ -407,6 +409,10 @@ void recv_ethercat(void) {
       _ack = (_ack & 0xFF00) | ((get_fpga_version() >> 8) & 0xFF);
       break;
     default:
+      if ((header->cpu_ctrl_flags & SET_SILENT_STEP) != 0) {
+        bram_write(BRAM_CONFIG_SELECT, CONFIG_SILENT_STEP, (uint16_t)header->mod_size);
+        break;
+      }
       _ctrl_flag = header->fpga_ctrl_flags;
       _wait_on_sync = (header->cpu_ctrl_flags & WAIT_ON_SYNC) != 0;
       write_mod();
